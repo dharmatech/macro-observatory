@@ -6,9 +6,11 @@ from pathlib import Path
 
 from macro_observatory.models import DatasetSpec
 from macro_observatory.sources.fred import FredSeriesAdapter
+from macro_observatory.sources.nyfed import NyFedReverseRepoAdapter
 
 DEFAULT_DATA_DIR = Path("data")
 FRED_MILLIONS_USD = "millions of U.S. dollars"
+US_DOLLARS = "U.S. dollars"
 
 
 def _fred_series_spec(
@@ -38,6 +40,30 @@ def _fred_series_spec(
     )
 
 
+def _nyfed_rrp_spec(source_dir: Path, metadata_dir: Path) -> DatasetSpec:
+    return DatasetSpec(
+        id="nyfed_rrp",
+        title="New York Fed Reverse Repo Operations (RRP)",
+        source_name="New York Fed",
+        adapter=NyFedReverseRepoAdapter(),
+        date_column="operationDate",
+        primary_key=("operationDate",),
+        overlap_days=14,
+        cache_path=source_dir / "nyfed_rrp.parquet",
+        metadata_path=metadata_dir / "nyfed_rrp.json",
+        required_columns=(
+            "operationDate",
+            "totalAmtAccepted",
+            "operationId",
+            "operationType",
+            "note",
+        ),
+        numeric_columns=("totalAmtAccepted",),
+        source_units=US_DOLLARS,
+        display_units=US_DOLLARS,
+    )
+
+
 def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
     cache_dir = data_dir / "cache"
     metadata_dir = cache_dir / "metadata"
@@ -58,6 +84,7 @@ def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
             source_dir=source_dir,
             metadata_dir=metadata_dir,
         ),
+        _nyfed_rrp_spec(source_dir, metadata_dir),
     )
     return {spec.id: spec for spec in specs}
 

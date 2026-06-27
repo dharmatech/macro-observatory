@@ -33,8 +33,9 @@ uv sync
 uv run macro-observatory datasets
 uv run macro-observatory update fred_walcl
 uv run macro-observatory update fred_resppllopnww
-uv run macro-observatory info fred_resppllopnww
-uv run macro-observatory show fred_resppllopnww --rows 10
+uv run macro-observatory update nyfed_rrp
+uv run macro-observatory info nyfed_rrp
+uv run macro-observatory show nyfed_rrp --rows 10
 uv run pytest
 uv run ruff check .
 uv run mypy .
@@ -56,9 +57,9 @@ Documentation-only changes do not necessarily require the full test suite, but `
 
 ## Current Checkpoint
 
-The implemented source datasets are `fred_walcl` and `fred_resppllopnww`, both backed by FRED series. They support update, metadata, preview, export, and Pandas loading through `load_dataset(...)`.
+The implemented source datasets are `fred_walcl`, `fred_resppllopnww`, and `nyfed_rrp`. They support update, metadata, preview, export, and Pandas loading through `load_dataset(...)`.
 
-The next likely implementation checkpoint is `nyfed_rrp`. Treat it as a source dataset checkpoint only; do not freeze the final Fed Net Liquidity formula until the user reviews units, labels, and the existing formula mismatch.
+The next likely implementation checkpoint is `treasury_tga`. Treat it as a source dataset checkpoint only; do not freeze the final Fed Net Liquidity formula until the user reviews units, labels, and the existing formula mismatch.
 
 ## Open Design Questions
 

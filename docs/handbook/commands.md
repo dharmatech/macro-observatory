@@ -43,6 +43,8 @@ Do not use `uv sync --active` unless you intentionally want uv to install this p
 
 The FRED adapter uses `FRED_API_KEY` when it is available. For the current FRED datasets, the adapter can also fall back to FRED's public CSV endpoint when no key is configured.
 
+The current New York Fed RRP dataset does not require an API key.
+
 For a temporary PowerShell session:
 
 ```powershell
@@ -68,6 +70,7 @@ Current expected output includes:
 ```text
 fred_walcl           Federal Reserve Balance Sheet Assets (WALCL)
 fred_resppllopnww    Earnings Remittances Due to the U.S. Treasury (RESPPLLOPNWW)
+nyfed_rrp            New York Fed Reverse Repo Operations (RRP)
 ```
 
 ## Update FRED WALCL
@@ -108,11 +111,37 @@ data/cache/metadata/fred_resppllopnww.json
 
 These cache files are ignored by git.
 
+## Update New York Fed RRP
+
+Run an incremental update for the local New York Fed reverse repo cache:
+
+```powershell
+uv run macro-observatory update nyfed_rrp
+```
+
+This dataset uses the documented New York Fed Markets API endpoint:
+
+```text
+https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json
+```
+
+The cached source dataset is flat and operation-level. It keeps the regular daily reverse repo operation, filters Small Value Exercise rows, and defensively keeps the highest `totalAmtAccepted` when multiple rows share an `operationDate`.
+
+Current local cache paths:
+
+```text
+data/cache/sources/nyfed_rrp.parquet
+data/cache/metadata/nyfed_rrp.json
+```
+
+These cache files are ignored by git.
+
 ## Inspect Dataset Metadata
 
 ```powershell
 uv run macro-observatory info fred_walcl
 uv run macro-observatory info fred_resppllopnww
+uv run macro-observatory info nyfed_rrp
 ```
 
 This prints the row count, date range, cache path, columns, and units recorded in metadata.
@@ -122,12 +151,13 @@ This prints the row count, date range, cache path, columns, and units recorded i
 ```powershell
 uv run macro-observatory show fred_walcl --rows 10
 uv run macro-observatory show fred_resppllopnww --rows 10
+uv run macro-observatory show nyfed_rrp --rows 10
 ```
 
 Use a different row count as needed:
 
 ```powershell
-uv run macro-observatory show fred_resppllopnww --rows 25
+uv run macro-observatory show nyfed_rrp --rows 25
 ```
 
 ## Export Datasets
@@ -137,6 +167,7 @@ Export to CSV:
 ```powershell
 uv run macro-observatory export fred_walcl --format csv --output exports/fred_walcl.csv
 uv run macro-observatory export fred_resppllopnww --format csv --output exports/fred_resppllopnww.csv
+uv run macro-observatory export nyfed_rrp --format csv --output exports/nyfed_rrp.csv
 ```
 
 Export to Parquet:
@@ -144,6 +175,7 @@ Export to Parquet:
 ```powershell
 uv run macro-observatory export fred_walcl --format parquet --output exports/fred_walcl.parquet
 uv run macro-observatory export fred_resppllopnww --format parquet --output exports/fred_resppllopnww.parquet
+uv run macro-observatory export nyfed_rrp --format parquet --output exports/nyfed_rrp.parquet
 ```
 
 The `exports/` directory is not special yet; it is just a convenient local output path.
@@ -163,9 +195,11 @@ from macro_observatory.data import load_dataset
 
 df_walcl = load_dataset("fred_walcl")
 df_resp = load_dataset("fred_resppllopnww")
+df_rrp = load_dataset("nyfed_rrp")
 
 df_walcl.tail()
 df_resp.tail()
+df_rrp.tail()
 ```
 
 The normal user-facing API should use dataset IDs rather than requiring users to know cache file paths.
@@ -177,6 +211,7 @@ Most commands default to `data/`. To test with a separate cache directory, use `
 ```powershell
 uv run macro-observatory --data-dir scratch-data update fred_walcl
 uv run macro-observatory --data-dir scratch-data update fred_resppllopnww
-uv run macro-observatory --data-dir scratch-data info fred_resppllopnww
-uv run macro-observatory --data-dir scratch-data show fred_resppllopnww --rows 5
+uv run macro-observatory --data-dir scratch-data update nyfed_rrp
+uv run macro-observatory --data-dir scratch-data info nyfed_rrp
+uv run macro-observatory --data-dir scratch-data show nyfed_rrp --rows 5
 ```
