@@ -5,9 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 import pandas as pd
+
+DatasetKind = Literal["source", "derived"]
 
 
 class SourceAdapter(Protocol):
@@ -31,7 +33,7 @@ class DatasetSpec:
     id: str
     title: str
     source_name: str
-    adapter: SourceAdapter
+    adapter: SourceAdapter | None
     date_column: str
     primary_key: tuple[str, ...]
     overlap_days: int
@@ -41,6 +43,7 @@ class DatasetSpec:
     numeric_columns: tuple[str, ...] = ()
     source_units: str | None = None
     display_units: str | None = None
+    kind: DatasetKind = "source"
 
 
 @dataclass(frozen=True)

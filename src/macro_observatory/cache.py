@@ -150,16 +150,45 @@ def _write_metadata(
     return metadata
 
 
+def replace_dataset(
+    spec: DatasetSpec,
+    df: pd.DataFrame,
+    *,
+    source_metadata: dict[str, Any] | None = None,
+) -> UpdateResult:
+    """Replace one cache with a fully built dataframe."""
+    existing = load_cache(spec)
+    normalized = _normalize_for_cache(spec, df)
+    _write_cache(spec, normalized)
+    updated_at = datetime.now(UTC)
+    metadata = _write_metadata(spec, normalized, updated_at, source_metadata)
+    return UpdateResult(
+        dataset_id=spec.id,
+        rows_before=len(existing),
+        rows_fetched=len(normalized),
+        rows_after=len(normalized),
+        min_date=metadata.min_date,
+        max_date=metadata.max_date,
+        updated_at=updated_at,
+        cache_path=spec.cache_path,
+        metadata_path=spec.metadata_path,
+    )
+
+
 def update_dataset(spec: DatasetSpec) -> UpdateResult:
     """Run the shared incremental update lifecycle for ``spec``."""
+    adapter = spec.adapter
+    if adapter is None:
+        raise ValueError(f"Dataset '{spec.id}' is derived. Use build-derived instead of update.")
+
     existing = load_cache(spec)
     start_date = _update_start_date(spec, existing)
-    fetched = spec.adapter.fetch(start_date)
+    fetched = adapter.fetch(start_date)
     fetched = _normalize_for_cache(spec, fetched)
     merged = _merge_rows(spec, existing, fetched)
     _write_cache(spec, merged)
     updated_at = datetime.now(UTC)
-    metadata = _write_metadata(spec, merged, updated_at, _adapter_source_metadata(spec.adapter))
+    metadata = _write_metadata(spec, merged, updated_at, _adapter_source_metadata(adapter))
     return UpdateResult(
         dataset_id=spec.id,
         rows_before=len(existing),

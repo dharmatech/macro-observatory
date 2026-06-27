@@ -10,6 +10,8 @@ import pandas as pd
 
 from macro_observatory.cache import load_metadata, update_dataset
 from macro_observatory.data import load_dataset
+from macro_observatory.derived import DerivedDatasetError, build_derived_dataset
+from macro_observatory.models import UpdateResult
 from macro_observatory.registry import DEFAULT_DATA_DIR, build_registry, get_dataset_spec
 
 
@@ -31,16 +33,33 @@ def _datasets(args: argparse.Namespace) -> int:
     return 0
 
 
-def _update(args: argparse.Namespace) -> int:
-    spec = get_dataset_spec(args.dataset_id, _data_dir(args.data_dir))
-    result = update_dataset(spec)
-    print(f"updated {result.dataset_id}")
+def _print_result(prefix: str, result: UpdateResult, *, rows_label: str = "rows fetched") -> None:
+    print(f"{prefix} {result.dataset_id}")
     print(f"rows before: {result.rows_before:,}")
-    print(f"rows fetched: {result.rows_fetched:,}")
+    print(f"{rows_label}: {result.rows_fetched:,}")
     print(f"rows after: {result.rows_after:,}")
     print(f"date range: {result.min_date} to {result.max_date}")
     print(f"cache: {result.cache_path}")
     print(f"metadata: {result.metadata_path}")
+
+
+def _update(args: argparse.Namespace) -> int:
+    spec = get_dataset_spec(args.dataset_id, _data_dir(args.data_dir))
+    if spec.kind == "derived":
+        print(f"Dataset '{spec.id}' is derived. Use `build-derived {spec.id}` instead.")
+        return 1
+    result = update_dataset(spec)
+    _print_result("updated", result)
+    return 0
+
+
+def _build_derived(args: argparse.Namespace) -> int:
+    try:
+        result = build_derived_dataset(args.dataset_id, data_dir=_data_dir(args.data_dir))
+    except DerivedDatasetError as exc:
+        print(str(exc))
+        return 1
+    _print_result("built", result, rows_label="rows built")
     return 0
 
 
@@ -48,10 +67,12 @@ def _info(args: argparse.Namespace) -> int:
     spec = get_dataset_spec(args.dataset_id, _data_dir(args.data_dir))
     metadata = load_metadata(spec)
     if metadata is None:
-        print(f"No metadata for {spec.id}. Run update first.")
+        command = "build-derived" if spec.kind == "derived" else "update"
+        print(f"No metadata for {spec.id}. Run {command} first.")
         return 1
     print(f"dataset: {metadata.dataset_id}")
     print(f"title: {metadata.title}")
+    print(f"kind: {spec.kind}")
     print(f"source: {metadata.source_name}")
     print(f"rows: {metadata.row_count:,}")
     print(f"date range: {metadata.min_date} to {metadata.max_date}")
@@ -96,9 +117,13 @@ def build_parser() -> argparse.ArgumentParser:
     datasets_parser = subparsers.add_parser("datasets", help="List known datasets")
     datasets_parser.set_defaults(func=_datasets)
 
-    update_parser = subparsers.add_parser("update", help="Update one dataset")
+    update_parser = subparsers.add_parser("update", help="Update one source dataset")
     update_parser.add_argument("dataset_id")
     update_parser.set_defaults(func=_update)
+
+    build_derived_parser = subparsers.add_parser("build-derived", help="Build one derived dataset")
+    build_derived_parser.add_argument("dataset_id")
+    build_derived_parser.set_defaults(func=_build_derived)
 
     info_parser = subparsers.add_parser("info", help="Show dataset metadata")
     info_parser.add_argument("dataset_id")

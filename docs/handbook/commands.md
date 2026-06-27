@@ -74,6 +74,7 @@ fred_walcl                           Federal Reserve Balance Sheet Assets (WALCL
 fred_resppllopnww                    Earnings Remittances Due to the U.S. Treasury (RESPPLLOPNWW)
 nyfed_rrp                            New York Fed Reverse Repo Operations (RRP)
 treasury_dts_operating_cash_balance  Treasury Daily Treasury Statement Operating Cash Balance
+treasury_tga                         Treasury General Account (TGA)
 ```
 
 ## Update FRED WALCL
@@ -164,6 +165,42 @@ data/cache/metadata/treasury_dts_operating_cash_balance.json
 
 These cache files are ignored by git.
 
+## Build Derived Treasury TGA
+
+Build the derived Treasury General Account series from the full Treasury Operating Cash Balance source cache:
+
+```powershell
+uv run macro-observatory build-derived treasury_tga
+```
+
+This command reads:
+
+```text
+data/cache/sources/treasury_dts_operating_cash_balance.parquet
+```
+
+and writes:
+
+```text
+data/cache/derived/treasury_tga.parquet
+data/cache/metadata/treasury_tga.json
+```
+
+The derived dataset keeps the TGA value in Treasury's published units, millions of U.S. dollars. It also includes traceability columns:
+
+```text
+source_account_type
+source_balance_field
+```
+
+Those columns make Treasury account-name transitions visible when inspecting the data.
+
+If the source cache is missing, run this first:
+
+```powershell
+uv run macro-observatory update treasury_dts_operating_cash_balance
+```
+
 ## Inspect Dataset Metadata
 
 ```powershell
@@ -171,6 +208,7 @@ uv run macro-observatory info fred_walcl
 uv run macro-observatory info fred_resppllopnww
 uv run macro-observatory info nyfed_rrp
 uv run macro-observatory info treasury_dts_operating_cash_balance
+uv run macro-observatory info treasury_tga
 ```
 
 This prints the row count, date range, cache path, columns, and units recorded in metadata.
@@ -182,6 +220,7 @@ uv run macro-observatory show fred_walcl --rows 10
 uv run macro-observatory show fred_resppllopnww --rows 10
 uv run macro-observatory show nyfed_rrp --rows 10
 uv run macro-observatory show treasury_dts_operating_cash_balance --rows 10
+uv run macro-observatory show treasury_tga --rows 10
 ```
 
 Use a different row count as needed:
@@ -189,6 +228,7 @@ Use a different row count as needed:
 ```powershell
 uv run macro-observatory show nyfed_rrp --rows 25
 uv run macro-observatory show treasury_dts_operating_cash_balance --rows 25
+uv run macro-observatory show treasury_tga --rows 25
 ```
 
 ## Export Datasets
@@ -200,6 +240,7 @@ uv run macro-observatory export fred_walcl --format csv --output exports/fred_wa
 uv run macro-observatory export fred_resppllopnww --format csv --output exports/fred_resppllopnww.csv
 uv run macro-observatory export nyfed_rrp --format csv --output exports/nyfed_rrp.csv
 uv run macro-observatory export treasury_dts_operating_cash_balance --format csv --output exports/treasury_dts_operating_cash_balance.csv
+uv run macro-observatory export treasury_tga --format csv --output exports/treasury_tga.csv
 ```
 
 Export to Parquet:
@@ -209,6 +250,7 @@ uv run macro-observatory export fred_walcl --format parquet --output exports/fre
 uv run macro-observatory export fred_resppllopnww --format parquet --output exports/fred_resppllopnww.parquet
 uv run macro-observatory export nyfed_rrp --format parquet --output exports/nyfed_rrp.parquet
 uv run macro-observatory export treasury_dts_operating_cash_balance --format parquet --output exports/treasury_dts_operating_cash_balance.parquet
+uv run macro-observatory export treasury_tga --format parquet --output exports/treasury_tga.parquet
 ```
 
 The `exports/` directory is not special yet; it is just a convenient local output path.
@@ -230,13 +272,20 @@ df_walcl = load_dataset("fred_walcl")
 df_resp = load_dataset("fred_resppllopnww")
 df_rrp = load_dataset("nyfed_rrp")
 df_treasury_ocb = load_dataset("treasury_dts_operating_cash_balance")
+df_tga = load_dataset("treasury_tga")
 
 df_walcl.tail()
 df_resp.tail()
 df_rrp.tail()
 df_treasury_ocb.tail()
+df_tga.tail()
 
 df_treasury_ocb["account_type"].drop_duplicates().sort_values()
+df_tga.groupby(["source_account_type", "source_balance_field"]).agg(
+    count=("date", "size"),
+    min_date=("date", "min"),
+    max_date=("date", "max"),
+)
 ```
 
 The normal user-facing API should use dataset IDs rather than requiring users to know cache file paths.
@@ -250,8 +299,11 @@ uv run macro-observatory --data-dir scratch-data update fred_walcl
 uv run macro-observatory --data-dir scratch-data update fred_resppllopnww
 uv run macro-observatory --data-dir scratch-data update nyfed_rrp
 uv run macro-observatory --data-dir scratch-data update treasury_dts_operating_cash_balance
+uv run macro-observatory --data-dir scratch-data build-derived treasury_tga
 uv run macro-observatory --data-dir scratch-data info nyfed_rrp
 uv run macro-observatory --data-dir scratch-data info treasury_dts_operating_cash_balance
+uv run macro-observatory --data-dir scratch-data info treasury_tga
 uv run macro-observatory --data-dir scratch-data show nyfed_rrp --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_dts_operating_cash_balance --rows 5
+uv run macro-observatory --data-dir scratch-data show treasury_tga --rows 5
 ```

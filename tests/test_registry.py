@@ -1,12 +1,15 @@
 from pathlib import Path
 
+import pytest
+
+from macro_observatory.cache import update_dataset
 from macro_observatory.registry import build_registry, get_dataset_spec
 from macro_observatory.sources.fred import FredSeriesAdapter
 from macro_observatory.sources.nyfed import NyFedReverseRepoAdapter
 from macro_observatory.sources.treasury import TreasuryFiscalDataAdapter
 
 
-def test_registry_contains_initial_source_datasets(tmp_path: Path) -> None:
+def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -> None:
     registry = build_registry(tmp_path)
 
     assert sorted(registry) == [
@@ -14,11 +17,13 @@ def test_registry_contains_initial_source_datasets(tmp_path: Path) -> None:
         "fred_walcl",
         "nyfed_rrp",
         "treasury_dts_operating_cash_balance",
+        "treasury_tga",
     ]
 
     resp = registry["fred_resppllopnww"]
     assert resp.title == "Earnings Remittances Due to the U.S. Treasury (RESPPLLOPNWW)"
     assert resp.source_name == "FRED"
+    assert resp.kind == "source"
     assert isinstance(resp.adapter, FredSeriesAdapter)
     assert resp.adapter.series_id == "RESPPLLOPNWW"
     assert resp.cache_path == tmp_path / "cache" / "sources" / "fred_resppllopnww.parquet"
@@ -29,6 +34,7 @@ def test_registry_contains_initial_source_datasets(tmp_path: Path) -> None:
     rrp = registry["nyfed_rrp"]
     assert rrp.title == "New York Fed Reverse Repo Operations (RRP)"
     assert rrp.source_name == "New York Fed"
+    assert rrp.kind == "source"
     assert isinstance(rrp.adapter, NyFedReverseRepoAdapter)
     assert rrp.date_column == "operationDate"
     assert rrp.primary_key == ("operationDate",)
@@ -40,6 +46,7 @@ def test_registry_contains_initial_source_datasets(tmp_path: Path) -> None:
     treasury = registry["treasury_dts_operating_cash_balance"]
     assert treasury.title == "Treasury Daily Treasury Statement Operating Cash Balance"
     assert treasury.source_name == "Treasury Fiscal Data"
+    assert treasury.kind == "source"
     assert isinstance(treasury.adapter, TreasuryFiscalDataAdapter)
     assert treasury.date_column == "record_date"
     assert treasury.primary_key == ("record_date", "account_type", "src_line_nbr")
@@ -54,6 +61,18 @@ def test_registry_contains_initial_source_datasets(tmp_path: Path) -> None:
     assert treasury.source_units == "millions of U.S. dollars"
     assert treasury.display_units == "millions of U.S. dollars"
 
+    tga = registry["treasury_tga"]
+    assert tga.title == "Treasury General Account (TGA)"
+    assert tga.source_name == "Macro Observatory Derived"
+    assert tga.kind == "derived"
+    assert tga.adapter is None
+    assert tga.date_column == "date"
+    assert tga.primary_key == ("date",)
+    assert tga.cache_path == tmp_path / "cache" / "derived" / "treasury_tga.parquet"
+    assert tga.metadata_path == tmp_path / "cache" / "metadata" / "treasury_tga.json"
+    assert tga.source_units == "millions of U.S. dollars"
+    assert tga.display_units == "millions of U.S. dollars"
+
 
 def test_get_dataset_spec_error_lists_known_ids(tmp_path: Path) -> None:
     try:
@@ -67,3 +86,11 @@ def test_get_dataset_spec_error_lists_known_ids(tmp_path: Path) -> None:
     assert "fred_walcl" in message
     assert "nyfed_rrp" in message
     assert "treasury_dts_operating_cash_balance" in message
+    assert "treasury_tga" in message
+
+
+def test_update_dataset_rejects_derived_specs(tmp_path: Path) -> None:
+    spec = get_dataset_spec("treasury_tga", tmp_path)
+
+    with pytest.raises(ValueError, match="build-derived"):
+        update_dataset(spec)

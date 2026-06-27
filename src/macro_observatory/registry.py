@@ -99,10 +99,30 @@ def _treasury_operating_cash_balance_spec(source_dir: Path, metadata_dir: Path) 
     )
 
 
+def _treasury_tga_spec(derived_dir: Path, metadata_dir: Path) -> DatasetSpec:
+    return DatasetSpec(
+        id="treasury_tga",
+        title="Treasury General Account (TGA)",
+        source_name="Macro Observatory Derived",
+        adapter=None,
+        date_column="date",
+        primary_key=("date",),
+        overlap_days=0,
+        cache_path=derived_dir / "treasury_tga.parquet",
+        metadata_path=metadata_dir / "treasury_tga.json",
+        required_columns=("date", "tga", "source_account_type", "source_balance_field"),
+        numeric_columns=("tga",),
+        source_units=TREASURY_MILLIONS_USD,
+        display_units=TREASURY_MILLIONS_USD,
+        kind="derived",
+    )
+
+
 def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
     cache_dir = data_dir / "cache"
     metadata_dir = cache_dir / "metadata"
     source_dir = cache_dir / "sources"
+    derived_dir = cache_dir / "derived"
 
     specs = (
         _fred_series_spec(
@@ -121,6 +141,7 @@ def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
         ),
         _nyfed_rrp_spec(source_dir, metadata_dir),
         _treasury_operating_cash_balance_spec(source_dir, metadata_dir),
+        _treasury_tga_spec(derived_dir, metadata_dir),
     )
     return {spec.id: spec for spec in specs}
 
