@@ -62,6 +62,9 @@ def _info(args: argparse.Namespace) -> int:
         print(f"source units: {metadata.source_units}")
     if metadata.display_units:
         print(f"display units: {metadata.display_units}")
+    if metadata.source_metadata:
+        keys = ", ".join(sorted(metadata.source_metadata))
+        print(f"source metadata keys: {keys}")
     return 0
 
 

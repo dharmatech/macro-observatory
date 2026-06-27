@@ -52,6 +52,7 @@ def _metadata_from_json(payload: dict[str, Any]) -> DatasetMetadata:
         columns=tuple(str(column) for column in payload["columns"]),
         source_units=payload.get("source_units"),
         display_units=payload.get("display_units"),
+        source_metadata=payload.get("source_metadata"),
     )
 
 
@@ -104,7 +105,22 @@ def _write_cache(spec: DatasetSpec, df: pd.DataFrame) -> None:
     df.to_parquet(spec.cache_path, index=False)
 
 
-def _write_metadata(spec: DatasetSpec, df: pd.DataFrame, updated_at: datetime) -> DatasetMetadata:
+def _adapter_source_metadata(adapter: object) -> dict[str, Any] | None:
+    source_metadata = getattr(adapter, "source_metadata", None)
+    if not callable(source_metadata):
+        return None
+    metadata = source_metadata()
+    if metadata is None:
+        return None
+    return dict(metadata)
+
+
+def _write_metadata(
+    spec: DatasetSpec,
+    df: pd.DataFrame,
+    updated_at: datetime,
+    source_metadata: dict[str, Any] | None,
+) -> DatasetMetadata:
     if df.empty:
         min_date = None
         max_date = None
@@ -125,6 +141,7 @@ def _write_metadata(spec: DatasetSpec, df: pd.DataFrame, updated_at: datetime) -
         columns=tuple(str(column) for column in df.columns),
         source_units=spec.source_units,
         display_units=spec.display_units,
+        source_metadata=source_metadata,
     )
     spec.metadata_path.parent.mkdir(parents=True, exist_ok=True)
     with spec.metadata_path.open("w", encoding="utf-8") as f:
@@ -142,7 +159,7 @@ def update_dataset(spec: DatasetSpec) -> UpdateResult:
     merged = _merge_rows(spec, existing, fetched)
     _write_cache(spec, merged)
     updated_at = datetime.now(UTC)
-    metadata = _write_metadata(spec, merged, updated_at)
+    metadata = _write_metadata(spec, merged, updated_at, _adapter_source_metadata(spec.adapter))
     return UpdateResult(
         dataset_id=spec.id,
         rows_before=len(existing),

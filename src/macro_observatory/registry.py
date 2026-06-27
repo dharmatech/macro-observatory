@@ -7,9 +7,14 @@ from pathlib import Path
 from macro_observatory.models import DatasetSpec
 from macro_observatory.sources.fred import FredSeriesAdapter
 from macro_observatory.sources.nyfed import NyFedReverseRepoAdapter
+from macro_observatory.sources.treasury import (
+    TREASURY_OPERATING_CASH_BALANCE_COLUMNS,
+    operating_cash_balance_adapter,
+)
 
 DEFAULT_DATA_DIR = Path("data")
 FRED_MILLIONS_USD = "millions of U.S. dollars"
+TREASURY_MILLIONS_USD = "millions of U.S. dollars"
 US_DOLLARS = "U.S. dollars"
 
 
@@ -64,6 +69,36 @@ def _nyfed_rrp_spec(source_dir: Path, metadata_dir: Path) -> DatasetSpec:
     )
 
 
+def _treasury_operating_cash_balance_spec(source_dir: Path, metadata_dir: Path) -> DatasetSpec:
+    return DatasetSpec(
+        id="treasury_dts_operating_cash_balance",
+        title="Treasury Daily Treasury Statement Operating Cash Balance",
+        source_name="Treasury Fiscal Data",
+        adapter=operating_cash_balance_adapter(),
+        date_column="record_date",
+        primary_key=("record_date", "account_type", "src_line_nbr"),
+        overlap_days=14,
+        cache_path=source_dir / "treasury_dts_operating_cash_balance.parquet",
+        metadata_path=metadata_dir / "treasury_dts_operating_cash_balance.json",
+        required_columns=TREASURY_OPERATING_CASH_BALANCE_COLUMNS,
+        numeric_columns=(
+            "close_today_bal",
+            "open_today_bal",
+            "open_month_bal",
+            "open_fiscal_year_bal",
+            "src_line_nbr",
+            "record_fiscal_year",
+            "record_fiscal_quarter",
+            "record_calendar_year",
+            "record_calendar_quarter",
+            "record_calendar_month",
+            "record_calendar_day",
+        ),
+        source_units=TREASURY_MILLIONS_USD,
+        display_units=TREASURY_MILLIONS_USD,
+    )
+
+
 def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
     cache_dir = data_dir / "cache"
     metadata_dir = cache_dir / "metadata"
@@ -85,6 +120,7 @@ def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
             metadata_dir=metadata_dir,
         ),
         _nyfed_rrp_spec(source_dir, metadata_dir),
+        _treasury_operating_cash_balance_spec(source_dir, metadata_dir),
     )
     return {spec.id: spec for spec in specs}
 
