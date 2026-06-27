@@ -11,4 +11,6 @@ site/data/
 .env
 .env.*
 !.env.example
+exports/
+scratch-data/
 
