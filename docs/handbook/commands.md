@@ -14,6 +14,31 @@ uv sync
 
 This creates or updates the local `.venv` from `pyproject.toml` and `uv.lock`.
 
+## Active Environment Warning
+
+If your PowerShell profile automatically activates another Python environment, your prompt may look like this before you run project commands:
+
+```powershell
+(uv-general-3.14) PS C:\Users\dharm\src\macro-observatory>
+```
+
+In that case, `uv sync` may print a warning like:
+
+```text
+warning: `VIRTUAL_ENV=...` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+```
+
+For this project, that warning is usually harmless. It means uv noticed the unrelated active environment and ignored it so it can use Macro Observatory's project-local `.venv`.
+
+To silence the warning for the current shell, deactivate the unrelated environment before running project commands:
+
+```powershell
+deactivate
+uv sync
+```
+
+Do not use `uv sync --active` unless you intentionally want uv to install this project's dependencies into the already-active environment instead of the project `.venv`.
+
 ## Optional Secrets
 
 The FRED adapter uses `FRED_API_KEY` when it is available. For the current `fred_walcl` dataset, the adapter can also fall back to FRED's public CSV endpoint when no key is configured.
@@ -127,3 +152,4 @@ uv run macro-observatory --data-dir scratch-data update fred_walcl
 uv run macro-observatory --data-dir scratch-data info fred_walcl
 uv run macro-observatory --data-dir scratch-data show fred_walcl --rows 5
 ```
+
