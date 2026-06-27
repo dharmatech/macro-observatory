@@ -13,6 +13,7 @@ Completed design docs:
 - `docs/design/00-intro.md`
 - `docs/design/01-fed-net-liquidity-milestone.md`
 - `docs/design/02-data-layer-and-cache.md`
+- `docs/design/03-static-site-interfaces.md`
 - `docs/design/90-future-deployment-options.md`
 - `docs/design/91-browser-data-formats.md`
 
