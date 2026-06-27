@@ -14,6 +14,7 @@ Completed design docs:
 - `docs/design/01-fed-net-liquidity-milestone.md`
 - `docs/design/02-data-layer-and-cache.md`
 - `docs/design/90-future-deployment-options.md`
+- `docs/design/91-browser-data-formats.md`
 
 Completed handbook docs:
 
@@ -462,4 +463,6 @@ Recommended next-step scope:
 
 GitHub Pages is the first target. The core data commands should stay platform-neutral so the same pipeline can later be called by other schedulers or hosts.
 
-A future paid managed instance on Vercel or another host is possible, but it is not in the current implementation scope. If that is explored later, the paid layer should be framed as hosted convenience and reliability around an open-source project, not as closed access to the public source code. See `docs/design/90-future-deployment-options.md` for the current future-facing design note.
+A future paid managed instance on Vercel or another host is possible, but it is not in the current implementation scope. If that is explored later, the paid layer should be framed as hosted convenience and reliability around an open-source project, not as closed access to the public source code. See `docs/design/90-future-deployment-options.md` for the current future-facing deployment note.
+
+A future browser data-format checkpoint could evaluate Apache Arrow, browser-readable Parquet, DuckDB-Wasm, and compressed JSON against the current JSON/CSV baseline. See `docs/design/91-browser-data-formats.md`. This should not block the first static chart milestone.
