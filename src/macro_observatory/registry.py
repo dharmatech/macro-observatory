@@ -118,6 +118,37 @@ def _treasury_tga_spec(derived_dir: Path, metadata_dir: Path) -> DatasetSpec:
     )
 
 
+def _fed_net_liquidity_spec(derived_dir: Path, metadata_dir: Path) -> DatasetSpec:
+    value_columns = (
+        "walcl",
+        "rrp",
+        "tga",
+        "rem",
+        "fed_net_liquidity",
+        "walcl_diff",
+        "rrp_diff",
+        "tga_diff",
+        "rem_diff",
+        "fed_net_liquidity_diff",
+    )
+    return DatasetSpec(
+        id="fed_net_liquidity",
+        title="Fed Net Liquidity",
+        source_name="Macro Observatory Derived",
+        adapter=None,
+        date_column="date",
+        primary_key=("date",),
+        overlap_days=0,
+        cache_path=derived_dir / "fed_net_liquidity.parquet",
+        metadata_path=metadata_dir / "fed_net_liquidity.json",
+        required_columns=("date", *value_columns),
+        numeric_columns=value_columns,
+        source_units=US_DOLLARS,
+        display_units=US_DOLLARS,
+        kind="derived",
+    )
+
+
 def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
     cache_dir = data_dir / "cache"
     metadata_dir = cache_dir / "metadata"
@@ -142,6 +173,7 @@ def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
         _nyfed_rrp_spec(source_dir, metadata_dir),
         _treasury_operating_cash_balance_spec(source_dir, metadata_dir),
         _treasury_tga_spec(derived_dir, metadata_dir),
+        _fed_net_liquidity_spec(derived_dir, metadata_dir),
     )
     return {spec.id: spec for spec in specs}
 

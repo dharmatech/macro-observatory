@@ -75,6 +75,7 @@ fred_resppllopnww                    Earnings Remittances Due to the U.S. Treasu
 nyfed_rrp                            New York Fed Reverse Repo Operations (RRP)
 treasury_dts_operating_cash_balance  Treasury Daily Treasury Statement Operating Cash Balance
 treasury_tga                         Treasury General Account (TGA)
+fed_net_liquidity                    Fed Net Liquidity
 ```
 
 ## Update FRED WALCL
@@ -201,6 +202,50 @@ If the source cache is missing, run this first:
 uv run macro-observatory update treasury_dts_operating_cash_balance
 ```
 
+## Build Derived Fed Net Liquidity
+
+Build the derived Fed Net Liquidity dataset from the component source and derived caches:
+
+```powershell
+uv run macro-observatory build-derived fed_net_liquidity
+```
+
+This command requires these caches first:
+
+```text
+data/cache/sources/fred_walcl.parquet
+data/cache/sources/fred_resppllopnww.parquet
+data/cache/sources/nyfed_rrp.parquet
+data/cache/derived/treasury_tga.parquet
+```
+
+and writes:
+
+```text
+data/cache/derived/fed_net_liquidity.parquet
+data/cache/metadata/fed_net_liquidity.json
+```
+
+The output values are stored in U.S. dollars. FRED `WALCL`, FRED `RESPPLLOPNWW`, and Treasury `treasury_tga` values are converted from millions of dollars to dollars before the formula is calculated. New York Fed RRP values are already dollars.
+
+The formula is:
+
+```text
+fed_net_liquidity = walcl - rrp - tga - rem
+```
+
+Components are outer-merged by date, sorted, forward-filled, and then the formula and diff columns are computed.
+
+If component caches are missing, run the relevant source or derived commands first:
+
+```powershell
+uv run macro-observatory update fred_walcl
+uv run macro-observatory update fred_resppllopnww
+uv run macro-observatory update nyfed_rrp
+uv run macro-observatory update treasury_dts_operating_cash_balance
+uv run macro-observatory build-derived treasury_tga
+```
+
 ## Inspect Dataset Metadata
 
 ```powershell
@@ -209,6 +254,7 @@ uv run macro-observatory info fred_resppllopnww
 uv run macro-observatory info nyfed_rrp
 uv run macro-observatory info treasury_dts_operating_cash_balance
 uv run macro-observatory info treasury_tga
+uv run macro-observatory info fed_net_liquidity
 ```
 
 This prints the row count, date range, cache path, columns, and units recorded in metadata.
@@ -221,6 +267,7 @@ uv run macro-observatory show fred_resppllopnww --rows 10
 uv run macro-observatory show nyfed_rrp --rows 10
 uv run macro-observatory show treasury_dts_operating_cash_balance --rows 10
 uv run macro-observatory show treasury_tga --rows 10
+uv run macro-observatory show fed_net_liquidity --rows 10
 ```
 
 Use a different row count as needed:
@@ -229,6 +276,7 @@ Use a different row count as needed:
 uv run macro-observatory show nyfed_rrp --rows 25
 uv run macro-observatory show treasury_dts_operating_cash_balance --rows 25
 uv run macro-observatory show treasury_tga --rows 25
+uv run macro-observatory show fed_net_liquidity --rows 25
 ```
 
 ## Export Datasets
@@ -241,6 +289,7 @@ uv run macro-observatory export fred_resppllopnww --format csv --output exports/
 uv run macro-observatory export nyfed_rrp --format csv --output exports/nyfed_rrp.csv
 uv run macro-observatory export treasury_dts_operating_cash_balance --format csv --output exports/treasury_dts_operating_cash_balance.csv
 uv run macro-observatory export treasury_tga --format csv --output exports/treasury_tga.csv
+uv run macro-observatory export fed_net_liquidity --format csv --output exports/fed_net_liquidity.csv
 ```
 
 Export to Parquet:
@@ -251,6 +300,7 @@ uv run macro-observatory export fred_resppllopnww --format parquet --output expo
 uv run macro-observatory export nyfed_rrp --format parquet --output exports/nyfed_rrp.parquet
 uv run macro-observatory export treasury_dts_operating_cash_balance --format parquet --output exports/treasury_dts_operating_cash_balance.parquet
 uv run macro-observatory export treasury_tga --format parquet --output exports/treasury_tga.parquet
+uv run macro-observatory export fed_net_liquidity --format parquet --output exports/fed_net_liquidity.parquet
 ```
 
 The `exports/` directory is not special yet; it is just a convenient local output path.
@@ -273,12 +323,14 @@ df_resp = load_dataset("fred_resppllopnww")
 df_rrp = load_dataset("nyfed_rrp")
 df_treasury_ocb = load_dataset("treasury_dts_operating_cash_balance")
 df_tga = load_dataset("treasury_tga")
+df_net_liquidity = load_dataset("fed_net_liquidity")
 
 df_walcl.tail()
 df_resp.tail()
 df_rrp.tail()
 df_treasury_ocb.tail()
 df_tga.tail()
+df_net_liquidity.tail()
 
 df_treasury_ocb["account_type"].drop_duplicates().sort_values()
 df_tga.groupby(["source_account_type", "source_balance_field"]).agg(
@@ -300,10 +352,13 @@ uv run macro-observatory --data-dir scratch-data update fred_resppllopnww
 uv run macro-observatory --data-dir scratch-data update nyfed_rrp
 uv run macro-observatory --data-dir scratch-data update treasury_dts_operating_cash_balance
 uv run macro-observatory --data-dir scratch-data build-derived treasury_tga
+uv run macro-observatory --data-dir scratch-data build-derived fed_net_liquidity
 uv run macro-observatory --data-dir scratch-data info nyfed_rrp
 uv run macro-observatory --data-dir scratch-data info treasury_dts_operating_cash_balance
 uv run macro-observatory --data-dir scratch-data info treasury_tga
+uv run macro-observatory --data-dir scratch-data info fed_net_liquidity
 uv run macro-observatory --data-dir scratch-data show nyfed_rrp --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_dts_operating_cash_balance --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_tga --rows 5
+uv run macro-observatory --data-dir scratch-data show fed_net_liquidity --rows 5
 ```

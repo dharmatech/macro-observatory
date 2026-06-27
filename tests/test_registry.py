@@ -13,6 +13,7 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
     registry = build_registry(tmp_path)
 
     assert sorted(registry) == [
+        "fed_net_liquidity",
         "fred_resppllopnww",
         "fred_walcl",
         "nyfed_rrp",
@@ -73,6 +74,18 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
     assert tga.source_units == "millions of U.S. dollars"
     assert tga.display_units == "millions of U.S. dollars"
 
+    net_liquidity = registry["fed_net_liquidity"]
+    assert net_liquidity.title == "Fed Net Liquidity"
+    assert net_liquidity.source_name == "Macro Observatory Derived"
+    assert net_liquidity.kind == "derived"
+    assert net_liquidity.adapter is None
+    assert net_liquidity.date_column == "date"
+    assert net_liquidity.primary_key == ("date",)
+    assert net_liquidity.cache_path == tmp_path / "cache" / "derived" / "fed_net_liquidity.parquet"
+    assert net_liquidity.metadata_path == tmp_path / "cache" / "metadata" / "fed_net_liquidity.json"
+    assert net_liquidity.source_units == "U.S. dollars"
+    assert net_liquidity.display_units == "U.S. dollars"
+
 
 def test_get_dataset_spec_error_lists_known_ids(tmp_path: Path) -> None:
     try:
@@ -82,6 +95,7 @@ def test_get_dataset_spec_error_lists_known_ids(tmp_path: Path) -> None:
     else:
         raise AssertionError("expected KeyError")
 
+    assert "fed_net_liquidity" in message
     assert "fred_resppllopnww" in message
     assert "fred_walcl" in message
     assert "nyfed_rrp" in message
