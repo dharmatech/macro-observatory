@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fed Net Liquidity | Macro Observatory</title>
+  <link rel="stylesheet" href="../../assets/css/site.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+  <script src="../../assets/js/site.js" defer></script>
+  <script src="../../assets/js/fed-net-liquidity.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand-link" href="../../">Macro Observatory</a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="../../">Pages</a>
+      <a href="../../data/fed-net-liquidity.csv">CSV</a>
+    </nav>
+  </header>
+
+  <main class="site-shell dashboard-shell">
+    <section class="page-heading dashboard-heading">
+      <div>
+        <p class="eyebrow">Fed Net Liquidity</p>
+        <h1>Fed Net Liquidity</h1>
+        <p class="heading-summary" id="formula-text">Loading formula</p>
+      </div>
+      <div class="metadata-block" aria-label="Dataset build details">
+        <span>Built</span>
+        <strong id="built-at">Loading</strong>
+      </div>
+    </section>
+
+    <div class="alert" id="page-alert" role="alert" hidden></div>
+    <div class="loading-row" id="loading-row">Loading Fed Net Liquidity data...</div>
+
+    <section class="metric-grid" aria-label="Dataset summary">
+      <article class="metric-tile">
+        <span>Latest Date</span>
+        <strong id="metric-latest-date">-</strong>
+      </article>
+      <article class="metric-tile metric-primary">
+        <span>Fed Net Liquidity</span>
+        <strong id="metric-latest-value">-</strong>
+      </article>
+      <article class="metric-tile">
+        <span>Latest Change</span>
+        <strong id="metric-latest-change">-</strong>
+      </article>
+      <article class="metric-tile">
+        <span>Rows</span>
+        <strong id="metric-row-count">-</strong>
+      </article>
+    </section>
+
+    <section class="chart-section" aria-labelledby="chart-heading">
+      <div class="section-heading-row">
+        <h2 id="chart-heading">Time Series</h2>
+        <span class="range-label" id="date-range-label">-</span>
+      </div>
+      <div class="chart-frame">
+        <div id="liquidity-chart" class="plotly-chart" aria-label="Fed Net Liquidity chart"></div>
+      </div>
+    </section>
+
+    <section class="details-grid" aria-label="Dataset details">
+      <article class="detail-panel">
+        <h2>Dataset</h2>
+        <dl class="detail-list">
+          <div>
+            <dt>Units</dt>
+            <dd id="metadata-units">-</dd>
+          </div>
+          <div>
+            <dt>Sources</dt>
+            <dd id="metadata-sources">-</dd>
+          </div>
+          <div>
+            <dt>Policy</dt>
+            <dd id="metadata-policy">-</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="detail-panel">
+        <h2>Source Rows</h2>
+        <div class="source-row-list" id="source-row-list"></div>
+      </article>
+    </section>
+
+    <section class="table-section" aria-labelledby="recent-heading">
+      <div class="section-heading-row">
+        <h2 id="recent-heading">Recent Observations</h2>
+        <span class="range-label">Latest 12 non-null rows</span>
+      </div>
+      <div class="table-frame">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Fed Net Liquidity</th>
+              <th>Change</th>
+              <th>WALCL</th>
+              <th>RRP</th>
+              <th>TGA</th>
+              <th>REM</th>
+            </tr>
+          </thead>
+          <tbody id="recent-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <noscript>
+    <div class="noscript-message">This page needs JavaScript to load the published data artifact.</div>
+  </noscript>
+</body>
+</html>

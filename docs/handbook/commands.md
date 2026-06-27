@@ -287,8 +287,47 @@ Use a different static-site output directory when needed:
 uv run macro-observatory publish fed_net_liquidity --site-dir scratch-site
 ```
 
-## Storage Report
+## Serve Static Site
 
+Serve the generated static site locally:
+
+```powershell
+uv run macro-observatory serve-site
+```
+
+The default URL is:
+
+```text
+http://localhost:8000/
+```
+
+The root page lists available static pages. The first dashboard page is:
+
+```text
+http://localhost:8000/pages/fed-net-liquidity/
+```
+
+The Fed Net Liquidity page loads these published artifacts:
+
+```text
+site/data/fed-net-liquidity.json
+site/data/fed-net-liquidity-metadata.json
+```
+
+If those files are missing or stale, run this first:
+
+```powershell
+uv run macro-observatory publish fed_net_liquidity
+```
+
+Use a different site directory or port when needed:
+
+```powershell
+uv run macro-observatory serve-site --site-dir scratch-site --port 8123
+```
+
+
+## Storage Report
 Show a concise cross-platform report of known project data files:
 
 ```powershell

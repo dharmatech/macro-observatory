@@ -6,7 +6,7 @@ This document is a quick handoff for a fresh Macro Observatory session. It recor
 
 ## Completed So Far
 
-The project has an initial design and the first Fed Net Liquidity data pipeline through the browser-facing published artifact checkpoint.
+The project has an initial design and the first Fed Net Liquidity data pipeline through the first static chart checkpoint.
 
 Completed design docs:
 
@@ -32,6 +32,7 @@ Completed implementation checkpoints:
 - Derived Fed Net Liquidity as dataset ID `fed_net_liquidity`.
 - Published Fed Net Liquidity static artifacts under `site/data/`.
 - Cross-platform storage diagnostics via `storage-report`.
+- First multi-page static site shell and Fed Net Liquidity Plotly page under `site/pages/fed-net-liquidity/`.
 
 ## Implemented Architecture
 
@@ -47,8 +48,9 @@ Current package files:
 - `src/macro_observatory/diagnostics.py`: cross-platform storage report for known cache, metadata, and site data files.
 - `src/macro_observatory/publish.py`: static artifact publisher for browser-facing data files.
 - `src/macro_observatory/registry.py`: dataset registry for source and derived datasets.
+- `src/macro_observatory/server.py`: local static-site server helper for `serve-site`.
 - `src/macro_observatory/data.py`: user-facing `load_dataset(...)` helper.
-- `src/macro_observatory/cli.py`: CLI commands for datasets, update, build-derived, publish, storage-report, info, show, and export.
+- `src/macro_observatory/cli.py`: CLI commands for datasets, update, build-derived, publish, storage-report, serve-site, info, show, and export.
 
 Current tests:
 
@@ -59,6 +61,7 @@ Current tests:
 - `tests/test_treasury.py`: verifies Treasury Fiscal Data pagination, date filtering, metadata capture, and cold-cache behavior.
 - `tests/test_derived.py`: verifies derived TGA selection, Fed Net Liquidity unit conversion, forward-fill behavior, cache writing, and metadata.
 - `tests/test_publish.py`: verifies published JSON, CSV, metadata, missing-cache errors, and deterministic repeated publishes.
+- `tests/test_server.py`: verifies static-site directory validation, local URL display, and `serve-site` parser wiring.
 
 ## Tooling
 
@@ -128,6 +131,12 @@ Show storage diagnostics:
 uv run macro-observatory storage-report
 ```
 
+Serve the static site locally:
+
+```powershell
+uv run macro-observatory serve-site
+```
+
 Inspect metadata:
 
 ```powershell
@@ -167,12 +176,22 @@ df_tga = load_dataset("treasury_tga")
 df_net_liquidity = load_dataset("fed_net_liquidity")
 ```
 
-Verification commands that passed after the `storage-report` checkpoint:
+Verification commands that passed after the first static-site checkpoint:
 
 ```powershell
 uv run pytest
 uv run ruff check .
 uv run mypy .
+node --check site/assets/js/site.js
+node --check site/assets/js/fed-net-liquidity.js
+```
+
+Local HTTP preview checks also passed with `uv run macro-observatory serve-site` running on `http://localhost:8123/` because port `8000` was already occupied:
+
+```text
+http://localhost:8123/
+http://localhost:8123/pages/fed-net-liquidity/
+http://localhost:8123/data/fed-net-liquidity-metadata.json
 ```
 
 ## Current Data Checkpoints
@@ -433,6 +452,24 @@ The JSON artifact is a records array with `YYYY-MM-DD` date strings and JSON `nu
 
 A live publish wrote 5,374 JSON records and 5,374 CSV rows with date range `2002-12-18` to `2026-06-26`. Local artifact sizes were about 1.38 MB for JSON, 700 KB for CSV, and 2 KB for metadata.
 
+The first static site shell is implemented with tracked source files:
+
+```text
+site/index.html
+site/pages/fed-net-liquidity/index.html
+site/assets/css/site.css
+site/assets/js/site.js
+site/assets/js/fed-net-liquidity.js
+```
+
+The root page is a minimal dashboard directory. The Fed Net Liquidity page loads the generated JSON and metadata artifacts with relative paths, renders a Plotly time-series chart, displays summary metrics, shows source metadata, and includes a recent-observations table.
+
+Local preview command:
+
+```powershell
+uv run macro-observatory serve-site
+```
+
 The `storage-report` command reports known source caches, derived caches, metadata files, and published site artifacts with fixed-width `KB` size columns, local modified timestamps, group totals, and explicit missing-file rows. It supports `--data-dir` and `--site-dir` for scratch directories.
 
 A live storage report after this checkpoint showed these totals:
@@ -459,18 +496,16 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is the first static chart and simple data-grid presentation for `fed_net_liquidity`.
+The next likely checkpoint is either GitHub Pages deployment automation or a review/polish pass on the first static Fed Net Liquidity page after manual browser inspection.
 
 Recommended next-step scope:
 
-- Create the first static page that loads `site/data/fed-net-liquidity.json` and `site/data/fed-net-liquidity-metadata.json`.
-- Render the component series and total Fed Net Liquidity series, likely with Plotly.js for v1.
-- Add a simple data-grid or table view using the same published artifact.
-- Surface enough metadata in the page to make formula and units clear.
-- Keep chart labels separate from the stable lowercase data column names.
-- Verify the page locally before any GitHub Pages workflow work.
-- Run `uv run pytest`, `uv run ruff check .`, and `uv run mypy .`.
-- Commit and push after the checkpoint is complete.
+- Confirm the desired GitHub Pages source and path structure.
+- Add a GitHub Actions workflow that can refresh source data, build derived data, publish artifacts, and deploy the static site.
+- Decide whether generated `site/data/` artifacts should be committed, deployed as action artifacts, or maintained on a deployment branch.
+- Keep the root page and dashboard-page structure compatible with future pages such as TGA Explorer, tax data, and Treasury securities views.
+- Revisit Plotly CDN pinning or vendoring if reproducibility or offline local preview becomes important.
+- Run `uv run pytest`, `uv run ruff check .`, and `uv run mypy .` after the next checkpoint.
 
 ## Known Open Questions
 
@@ -478,7 +513,7 @@ Recommended next-step scope:
 - The old implementation computes `NL = WALCL - RRP - TGA - REM`.
 - The current implementation intentionally reproduces the old code formula and records it in metadata, but the canonical formula still deserves an explicit review before public labeling is finalized.
 - The final chart label for `RESPPLLOPNWW` should be reviewed if it remains the `REM` term.
-- The first chart and data-grid presentation are not implemented yet.
+- The first static page uses Plotly from a CDN; long-term vendoring or a frontend build system remains undecided.
 - GitHub Actions deployment/update workflows are not implemented yet.
 
 ## Future Deployment Notes

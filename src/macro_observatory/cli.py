@@ -20,6 +20,7 @@ from macro_observatory.publish import (
     publish_dataset,
 )
 from macro_observatory.registry import DEFAULT_DATA_DIR, build_registry, get_dataset_spec
+from macro_observatory.server import DEFAULT_HOST, DEFAULT_PORT, SiteDirectoryError, serve_site
 
 
 def _data_dir(value: str | None) -> Path:
@@ -102,6 +103,19 @@ def _storage_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _serve_site(args: argparse.Namespace) -> int:
+    site_dir = Path(args.site_dir) if args.site_dir else DEFAULT_SITE_DIR
+    try:
+        serve_site(site_dir=site_dir, host=args.host, port=args.port)
+    except SiteDirectoryError as exc:
+        print(str(exc))
+        return 1
+    except OSError as exc:
+        print(f"Could not start static site server: {exc}")
+        return 1
+    return 0
+
+
 def _info(args: argparse.Namespace) -> int:
     spec = get_dataset_spec(args.dataset_id, _data_dir(args.data_dir))
     metadata = load_metadata(spec)
@@ -174,6 +188,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     storage_report_parser.add_argument("--site-dir", help="Static site output directory")
     storage_report_parser.set_defaults(func=_storage_report)
+
+    serve_site_parser = subparsers.add_parser("serve-site", help="Serve the static site locally")
+    serve_site_parser.add_argument("--site-dir", help="Static site directory")
+    serve_site_parser.add_argument("--host", default=DEFAULT_HOST, help="Host interface to bind")
+    serve_site_parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Port to bind")
+    serve_site_parser.set_defaults(func=_serve_site)
 
     info_parser = subparsers.add_parser("info", help="Show dataset metadata")
     info_parser.add_argument("dataset_id")
