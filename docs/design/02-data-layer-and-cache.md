@@ -97,11 +97,15 @@ The exact implementation may differ, but the design direction is:
 
 Every maintained dataset should have a stable ID.
 
-Initial expected IDs:
+Initial source dataset IDs:
 
 - `fred_walcl`
 - `fred_resppllopnww`
 - `nyfed_rrp`
+- `treasury_dts_operating_cash_balance`
+
+Initial derived dataset IDs:
+
 - `treasury_tga`
 - `fed_net_liquidity`
 
@@ -137,6 +141,28 @@ Likely registry fields:
 - required secret names.
 
 The registry should not contain secret values.
+
+## Dataset Layers
+
+The data pipeline should keep three dataset layers distinct.
+
+Source caches preserve source-level API or endpoint data. They should stay close to the upstream shape so users can inspect the original data space in Pandas and diagnose source changes later. For example, `treasury_dts_operating_cash_balance` should cache the full Treasury Fiscal Data Operating Cash Balance endpoint, not only the TGA rows needed by the first chart.
+
+Derived caches are computed from one or more source caches. They should be Pandas-friendly analytical tables with explicit formulas, units, joins, forward-fill policy, and traceability columns where useful. For example, `treasury_tga` is derived from `treasury_dts_operating_cash_balance`, and `fed_net_liquidity` will be derived from `fred_walcl`, `fred_resppllopnww`, `nyfed_rrp`, and `treasury_tga`.
+
+Published artifacts are compact files for the static web frontend. They should usually be generated from derived caches and should contain only the columns and rows needed by the presentation. A browser chart should not need to download a full raw Treasury endpoint just to draw one TGA component line.
+
+The intended first milestone pipeline is:
+
+```text
+source caches
+  -> treasury_tga derived cache
+  -> fed_net_liquidity derived cache
+  -> compact published chart artifact
+  -> chart and data-grid presentation
+```
+
+This boundary preserves the exploratory value of full source caches while keeping GitHub Pages payloads small.
 
 ## Source Adapters
 
@@ -194,18 +220,20 @@ data/
       fred_walcl.parquet
       fred_resppllopnww.parquet
       nyfed_rrp.parquet
-      treasury_tga.parquet
+      treasury_dts_operating_cash_balance.parquet
     derived/
+      treasury_tga.parquet
       fed_net_liquidity.parquet
     metadata/
       fred_walcl.json
       fred_resppllopnww.json
       nyfed_rrp.json
+      treasury_dts_operating_cash_balance.json
       treasury_tga.json
       fed_net_liquidity.json
 ```
 
-This layout is provisional. The implementation may adjust it, but the source/derived/metadata distinction should remain.
+This layout is provisional. The implementation may adjust it, but the source/derived/metadata distinction should remain. Metadata may stay flat at first; the source-vs-derived distinction is primarily encoded by the cache path and dataset ID.
 
 ## Storage Format
 
@@ -257,6 +285,8 @@ A Parquet artifact may also be published if useful for direct Pandas download, b
 
 Published artifacts should be compact and specific to the presentation. A large raw Treasury cache can exist at build time without becoming a large browser payload.
 
+Published artifacts should not become the canonical analytical layer. If a chart needs `date`, `walcl`, `rrp`, `tga`, `rem`, and `fed_net_liquidity`, the published artifact can contain only those columns while the derived cache remains the inspectable Pandas table and the source caches remain available for deeper analysis.
+
 ## User Inspection
 
 Every maintained dataset should be easy to inspect by name.
@@ -282,7 +312,8 @@ df = load_dataset("fred_walcl")
 For derived datasets:
 
 ```python
-df = load_dataset("fed_net_liquidity")
+df_tga = load_dataset("treasury_tga")
+df_net_liquidity = load_dataset("fed_net_liquidity")
 ```
 
 The data layer should hide file paths and storage details from normal users.
@@ -340,7 +371,11 @@ The eventual workflow should call project commands such as:
 
 ```powershell
 uv sync
-uv run macro-observatory update fed_net_liquidity
+uv run macro-observatory update fred_walcl
+uv run macro-observatory update fred_resppllopnww
+uv run macro-observatory update nyfed_rrp
+uv run macro-observatory update treasury_dts_operating_cash_balance
+uv run macro-observatory build-derived fed_net_liquidity
 uv run macro-observatory publish fed_net_liquidity
 ```
 
