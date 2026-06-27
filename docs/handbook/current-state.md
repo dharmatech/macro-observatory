@@ -6,7 +6,7 @@ This document is a quick handoff for a fresh Macro Observatory session. It recor
 
 ## Completed So Far
 
-The project has an initial design and one implemented data checkpoint.
+The project has an initial design and two implemented source-data checkpoints.
 
 Completed design docs:
 
@@ -20,9 +20,10 @@ Completed handbook docs:
 - `docs/handbook/commands.md`
 - `docs/handbook/current-state.md`
 
-Completed implementation checkpoint:
+Completed implementation checkpoints:
 
 - FRED `WALCL` as dataset ID `fred_walcl`.
+- FRED `RESPPLLOPNWW` as dataset ID `fred_resppllopnww`.
 
 ## Implemented Architecture
 
@@ -32,13 +33,14 @@ Current package files:
 - `src/macro_observatory/validation.py`: dataframe validation and normalization helpers.
 - `src/macro_observatory/cache.py`: shared Parquet plus metadata JSON cache/update lifecycle.
 - `src/macro_observatory/sources/fred.py`: FRED source adapter.
-- `src/macro_observatory/registry.py`: dataset registry, currently containing `fred_walcl`.
+- `src/macro_observatory/registry.py`: dataset registry, currently containing `fred_walcl` and `fred_resppllopnww`.
 - `src/macro_observatory/data.py`: user-facing `load_dataset(...)` helper.
 - `src/macro_observatory/cli.py`: CLI commands for datasets, update, info, show, and export.
 
 Current tests:
 
 - `tests/test_cache.py`: verifies cache writing, metadata, overlap behavior, and deduplication preference for newer rows.
+- `tests/test_registry.py`: verifies the initial FRED registry entries and known-ID error message.
 
 ## Tooling
 
@@ -66,9 +68,9 @@ Development dependencies currently include:
 
 ## Verified Commands
 
-The user successfully ran the handbook flow locally after deactivating an unrelated default Python environment.
+The user successfully ran the initial WALCL handbook flow locally after deactivating an unrelated default Python environment.
 
-Setup:
+Current setup command:
 
 ```powershell
 uv sync
@@ -80,22 +82,25 @@ List datasets:
 uv run macro-observatory datasets
 ```
 
-Update WALCL:
+Update source datasets:
 
 ```powershell
 uv run macro-observatory update fred_walcl
+uv run macro-observatory update fred_resppllopnww
 ```
 
-Inspect WALCL metadata:
+Inspect metadata:
 
 ```powershell
 uv run macro-observatory info fred_walcl
+uv run macro-observatory info fred_resppllopnww
 ```
 
-Show recent WALCL rows:
+Show recent rows:
 
 ```powershell
 uv run macro-observatory show fred_walcl --rows 10
+uv run macro-observatory show fred_resppllopnww --rows 10
 ```
 
 Load in Pandas:
@@ -107,11 +112,11 @@ uv run python
 ```python
 from macro_observatory.data import load_dataset
 
-df = load_dataset("fred_walcl")
-df.tail()
+df_walcl = load_dataset("fred_walcl")
+df_resp = load_dataset("fred_resppllopnww")
 ```
 
-Verification commands that passed at the first implementation checkpoint:
+Verification commands that passed after the `fred_resppllopnww` checkpoint:
 
 ```powershell
 uv run pytest
@@ -119,13 +124,9 @@ uv run ruff check .
 uv run mypy .
 ```
 
-## Current Data Checkpoint
+## Current Data Checkpoints
 
-Dataset ID:
-
-```text
-fred_walcl
-```
+### `fred_walcl`
 
 Source:
 
@@ -152,42 +153,73 @@ data/cache/sources/fred_walcl.parquet
 data/cache/metadata/fred_walcl.json
 ```
 
-These cache files are ignored by git.
+### `fred_resppllopnww`
 
-The FRED adapter uses `FRED_API_KEY` when present. For `fred_walcl`, it can fall back to FRED's public CSV endpoint when no key is configured.
+Source:
+
+```text
+FRED series RESPPLLOPNWW
+```
+
+Official FRED title verified during the checkpoint:
+
+```text
+Liabilities and Capital: Liabilities: Earnings Remittances Due to the U.S. Treasury: Wednesday Level
+```
+
+Current registry label:
+
+```text
+Earnings Remittances Due to the U.S. Treasury (RESPPLLOPNWW)
+```
+
+Current units metadata:
+
+```text
+millions of U.S. dollars
+```
+
+Current cache paths:
+
+```text
+data/cache/sources/fred_resppllopnww.parquet
+data/cache/metadata/fred_resppllopnww.json
+```
+
+First live update fetched 1,228 rows with date range `2002-12-18` to `2026-06-24`. A second live update fetched 3 overlap rows and preserved 1,228 rows after deduplication.
+
+Source caches are ignored by git.
+
+The FRED adapter uses `FRED_API_KEY` when present. For the current FRED datasets, it can fall back to FRED's public CSV endpoint when no key is configured.
 
 ## Next Likely Checkpoint
 
 The next likely source dataset is:
 
 ```text
-fred_resppllopnww
-```
-
-This should use the same FRED adapter with series ID:
-
-```text
-RESPPLLOPNWW
+nyfed_rrp
 ```
 
 Recommended next-step scope:
 
-- Add a registry entry for `fred_resppllopnww`.
-- Verify official FRED title and units before locking the display label.
+- Review the legacy New York Fed RRP logic.
+- Identify the current New York Fed endpoint and response schema.
+- Add a New York Fed source adapter.
+- Add a registry entry for `nyfed_rrp`.
 - Run a live update.
 - Verify `datasets`, `update`, `info`, `show`, and Pandas loading.
 - Add handbook commands for the new dataset.
 - Run `uv run pytest`, `uv run ruff check .`, and `uv run mypy .`.
 - Commit and push after the checkpoint is complete.
 
-Do not decide the canonical Fed Net Liquidity formula as part of this source checkpoint. Treat `RESPPLLOPNWW` as a source dataset until the formula, units, and label have been reviewed.
+Do not decide the canonical Fed Net Liquidity formula as part of the next source checkpoint. Treat RRP as a source dataset until the formula, units, and merge behavior have been reviewed.
 
 ## Known Open Questions
 
 - The old README says `Fed Net Liquidity = WALCL - RRP - TGA`.
 - The old implementation computes `NL = WALCL - RRP - TGA - REM`.
 - The old implementation multiplies `WALCL`, `TGA`, and `REM` by `1_000_000`, but does not multiply RRP.
-- The exact economic label for `RESPPLLOPNWW` should be verified.
+- The final chart label for `RESPPLLOPNWW` should be reviewed if it remains the `REM` term.
 - New York Fed RRP filtering and duplicate-date handling should be reviewed against the legacy code.
 - Treasury TGA account selection and balance-column logic should be reviewed against the legacy code.
 - Browser-facing published artifact formats are not implemented yet.
@@ -198,4 +230,3 @@ Do not decide the canonical Fed Net Liquidity formula as part of this source che
 GitHub Pages is the first target. The core data commands should stay platform-neutral so the same pipeline can later be called by other schedulers or hosts.
 
 A future paid managed instance on Vercel or another host is possible, but it is not in the current implementation scope. If that is explored later, the paid layer should be framed as hosted convenience and reliability around an open-source project, not as closed access to the public source code. See `docs/design/90-future-deployment-options.md` for the current future-facing design note.
-

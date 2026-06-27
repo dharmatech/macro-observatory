@@ -41,7 +41,7 @@ Do not use `uv sync --active` unless you intentionally want uv to install this p
 
 ## Optional Secrets
 
-The FRED adapter uses `FRED_API_KEY` when it is available. For the current `fred_walcl` dataset, the adapter can also fall back to FRED's public CSV endpoint when no key is configured.
+The FRED adapter uses `FRED_API_KEY` when it is available. For the current FRED datasets, the adapter can also fall back to FRED's public CSV endpoint when no key is configured.
 
 For a temporary PowerShell session:
 
@@ -66,7 +66,8 @@ uv run macro-observatory datasets
 Current expected output includes:
 
 ```text
-fred_walcl    Federal Reserve Balance Sheet Assets (WALCL)
+fred_walcl           Federal Reserve Balance Sheet Assets (WALCL)
+fred_resppllopnww    Earnings Remittances Due to the U.S. Treasury (RESPPLLOPNWW)
 ```
 
 ## Update FRED WALCL
@@ -88,43 +89,66 @@ data/cache/metadata/fred_walcl.json
 
 These cache files are ignored by git.
 
-## Inspect WALCL Metadata
+## Update FRED RESPPLLOPNWW
+
+Run an incremental update for the local earnings-remittances cache:
+
+```powershell
+uv run macro-observatory update fred_resppllopnww
+```
+
+This dataset is the FRED `RESPPLLOPNWW` series. The existing legacy code uses this series as the candidate `REM` term, but the final Fed Net Liquidity formula remains an explicit checkpoint.
+
+Current local cache paths:
+
+```text
+data/cache/sources/fred_resppllopnww.parquet
+data/cache/metadata/fred_resppllopnww.json
+```
+
+These cache files are ignored by git.
+
+## Inspect Dataset Metadata
 
 ```powershell
 uv run macro-observatory info fred_walcl
+uv run macro-observatory info fred_resppllopnww
 ```
 
 This prints the row count, date range, cache path, columns, and units recorded in metadata.
 
-## Show Recent WALCL Rows
+## Show Recent Rows
 
 ```powershell
 uv run macro-observatory show fred_walcl --rows 10
+uv run macro-observatory show fred_resppllopnww --rows 10
 ```
 
 Use a different row count as needed:
 
 ```powershell
-uv run macro-observatory show fred_walcl --rows 25
+uv run macro-observatory show fred_resppllopnww --rows 25
 ```
 
-## Export WALCL
+## Export Datasets
 
 Export to CSV:
 
 ```powershell
 uv run macro-observatory export fred_walcl --format csv --output exports/fred_walcl.csv
+uv run macro-observatory export fred_resppllopnww --format csv --output exports/fred_resppllopnww.csv
 ```
 
 Export to Parquet:
 
 ```powershell
 uv run macro-observatory export fred_walcl --format parquet --output exports/fred_walcl.parquet
+uv run macro-observatory export fred_resppllopnww --format parquet --output exports/fred_resppllopnww.parquet
 ```
 
 The `exports/` directory is not special yet; it is just a convenient local output path.
 
-## Load WALCL In Pandas
+## Load Datasets In Pandas
 
 Start a Python REPL inside the uv environment:
 
@@ -132,13 +156,16 @@ Start a Python REPL inside the uv environment:
 uv run python
 ```
 
-Then load the dataset by ID:
+Then load datasets by ID:
 
 ```python
 from macro_observatory.data import load_dataset
 
-df = load_dataset("fred_walcl")
-df.tail()
+df_walcl = load_dataset("fred_walcl")
+df_resp = load_dataset("fred_resppllopnww")
+
+df_walcl.tail()
+df_resp.tail()
 ```
 
 The normal user-facing API should use dataset IDs rather than requiring users to know cache file paths.
@@ -149,7 +176,7 @@ Most commands default to `data/`. To test with a separate cache directory, use `
 
 ```powershell
 uv run macro-observatory --data-dir scratch-data update fred_walcl
-uv run macro-observatory --data-dir scratch-data info fred_walcl
-uv run macro-observatory --data-dir scratch-data show fred_walcl --rows 5
+uv run macro-observatory --data-dir scratch-data update fred_resppllopnww
+uv run macro-observatory --data-dir scratch-data info fred_resppllopnww
+uv run macro-observatory --data-dir scratch-data show fred_resppllopnww --rows 5
 ```
-

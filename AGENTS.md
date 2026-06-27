@@ -32,8 +32,9 @@ Prefer `uv` commands:
 uv sync
 uv run macro-observatory datasets
 uv run macro-observatory update fred_walcl
-uv run macro-observatory info fred_walcl
-uv run macro-observatory show fred_walcl --rows 10
+uv run macro-observatory update fred_resppllopnww
+uv run macro-observatory info fred_resppllopnww
+uv run macro-observatory show fred_resppllopnww --rows 10
 uv run pytest
 uv run ruff check .
 uv run mypy .
@@ -55,14 +56,14 @@ Documentation-only changes do not necessarily require the full test suite, but `
 
 ## Current Checkpoint
 
-The first implemented dataset is `fred_walcl`, backed by the FRED `WALCL` series. It supports update, metadata, preview, export, and Pandas loading through `load_dataset("fred_walcl")`.
+The implemented source datasets are `fred_walcl` and `fred_resppllopnww`, both backed by FRED series. They support update, metadata, preview, export, and Pandas loading through `load_dataset(...)`.
 
-The next likely implementation checkpoint is `fred_resppllopnww`, also from FRED. Treat it as a source dataset checkpoint only; do not freeze the final Fed Net Liquidity formula until the user reviews units, labels, and the existing formula mismatch.
+The next likely implementation checkpoint is `nyfed_rrp`. Treat it as a source dataset checkpoint only; do not freeze the final Fed Net Liquidity formula until the user reviews units, labels, and the existing formula mismatch.
 
 ## Open Design Questions
 
 - Should canonical Fed Net Liquidity be `WALCL - RRP - TGA` or `WALCL - RRP - TGA - REM`?
-- What display label and economic interpretation should be used for `RESPPLLOPNWW`?
+- What display label should be used for `RESPPLLOPNWW` in the final chart if it remains the `REM` term?
 - Which source units need conversion before combining WALCL, RRP, TGA, and REM?
 - What browser-facing artifact format should the first static chart consume?
 - Which generated artifacts, if any, should be committed versus produced by scheduled jobs?
