@@ -6,7 +6,7 @@ This document is a quick handoff for a fresh Macro Observatory session. It recor
 
 ## Completed So Far
 
-The project has an initial design and the first Fed Net Liquidity data pipeline through the derived dataframe checkpoint.
+The project has an initial design and the first Fed Net Liquidity data pipeline through the browser-facing published artifact checkpoint.
 
 Completed design docs:
 
@@ -28,6 +28,7 @@ Completed implementation checkpoints:
 - Treasury Fiscal Data Operating Cash Balance as source dataset ID `treasury_dts_operating_cash_balance`.
 - Derived Treasury General Account as dataset ID `treasury_tga`.
 - Derived Fed Net Liquidity as dataset ID `fed_net_liquidity`.
+- Published Fed Net Liquidity static artifacts under `site/data/`.
 
 ## Implemented Architecture
 
@@ -40,9 +41,10 @@ Current package files:
 - `src/macro_observatory/sources/nyfed.py`: New York Fed reverse repo source adapter.
 - `src/macro_observatory/sources/treasury.py`: Treasury Fiscal Data source adapter.
 - `src/macro_observatory/derived.py`: derived dataset builders for `treasury_tga` and `fed_net_liquidity`.
+- `src/macro_observatory/publish.py`: static artifact publisher for browser-facing data files.
 - `src/macro_observatory/registry.py`: dataset registry for source and derived datasets.
 - `src/macro_observatory/data.py`: user-facing `load_dataset(...)` helper.
-- `src/macro_observatory/cli.py`: CLI commands for datasets, update, build-derived, info, show, and export.
+- `src/macro_observatory/cli.py`: CLI commands for datasets, update, build-derived, publish, info, show, and export.
 
 Current tests:
 
@@ -51,6 +53,7 @@ Current tests:
 - `tests/test_nyfed.py`: verifies New York Fed RRP fetch parameters, Small Value Exercise filtering, duplicate-date amount selection, and cold-cache start date.
 - `tests/test_treasury.py`: verifies Treasury Fiscal Data pagination, date filtering, metadata capture, and cold-cache behavior.
 - `tests/test_derived.py`: verifies derived TGA selection, Fed Net Liquidity unit conversion, forward-fill behavior, cache writing, and metadata.
+- `tests/test_publish.py`: verifies published JSON, CSV, metadata, missing-cache errors, and deterministic repeated publishes.
 
 ## Tooling
 
@@ -108,6 +111,12 @@ uv run macro-observatory build-derived treasury_tga
 uv run macro-observatory build-derived fed_net_liquidity
 ```
 
+Publish browser-facing artifacts:
+
+```powershell
+uv run macro-observatory publish fed_net_liquidity
+```
+
 Inspect metadata:
 
 ```powershell
@@ -147,7 +156,7 @@ df_tga = load_dataset("treasury_tga")
 df_net_liquidity = load_dataset("fed_net_liquidity")
 ```
 
-Verification commands that passed after the `fed_net_liquidity` checkpoint:
+Verification commands that passed after the `publish fed_net_liquidity` checkpoint:
 
 ```powershell
 uv run pytest
@@ -401,6 +410,18 @@ Current transform policy:
 
 A live build produced 5,374 rows with date range `2002-12-18` to `2026-06-26`.
 
+Published artifacts are generated from this derived cache and written to:
+
+```text
+site/data/fed-net-liquidity.json
+site/data/fed-net-liquidity.csv
+site/data/fed-net-liquidity-metadata.json
+```
+
+The JSON artifact is a records array with `YYYY-MM-DD` date strings and JSON `null` for missing values. The metadata artifact includes formula, units, source dataset IDs, source row counts, date range, dataset build timestamp, artifact filenames, and chart-series labels. It omits local cache paths and secrets. `site/data/` is ignored by git.
+
+A live publish wrote 5,374 JSON records and 5,374 CSV rows with date range `2002-12-18` to `2026-06-26`. Local artifact sizes were about 1.38 MB for JSON, 700 KB for CSV, and 2 KB for metadata.
+
 Legacy comparison against the old pickle-backed formula matched exactly for 4,833 overlapping rows through `2024-05-01`, the date where all old component source pickles still had complete coverage. Tail differences after that were due to the old pickles forward-filling stale component values while the current source caches have newer values.
 
 ## Secrets
@@ -415,20 +436,18 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is browser-facing published static data artifacts for `fed_net_liquidity`.
+The next likely checkpoint is the first static chart and simple data-grid presentation for `fed_net_liquidity`.
 
 Recommended next-step scope:
 
-- Decide the first published artifact shape for the chart.
-- Generate compact JSON and CSV from the `fed_net_liquidity` derived cache.
-- Include enough metadata for formula, units, row count, date range, source dataset IDs, and build timestamp.
-- Keep the artifact presentation-neutral enough that Plotly.js is not the only possible frontend.
-- Add handbook commands for publishing artifacts.
-- Verify artifacts can be read without loading the raw source caches.
+- Create the first static page that loads `site/data/fed-net-liquidity.json` and `site/data/fed-net-liquidity-metadata.json`.
+- Render the component series and total Fed Net Liquidity series, likely with Plotly.js for v1.
+- Add a simple data-grid or table view using the same published artifact.
+- Surface enough metadata in the page to make formula and units clear.
+- Keep chart labels separate from the stable lowercase data column names.
+- Verify the page locally before any GitHub Pages workflow work.
 - Run `uv run pytest`, `uv run ruff check .`, and `uv run mypy .`.
 - Commit and push after the checkpoint is complete.
-
-After that, the next checkpoint should be the first static chart and simple data-grid presentation.
 
 ## Known Open Questions
 
@@ -436,7 +455,6 @@ After that, the next checkpoint should be the first static chart and simple data
 - The old implementation computes `NL = WALCL - RRP - TGA - REM`.
 - The current implementation intentionally reproduces the old code formula and records it in metadata, but the canonical formula still deserves an explicit review before public labeling is finalized.
 - The final chart label for `RESPPLLOPNWW` should be reviewed if it remains the `REM` term.
-- Browser-facing published artifact formats are not implemented yet.
 - The first chart and data-grid presentation are not implemented yet.
 - GitHub Actions deployment/update workflows are not implemented yet.
 

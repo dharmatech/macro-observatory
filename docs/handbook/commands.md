@@ -246,6 +246,47 @@ uv run macro-observatory update treasury_dts_operating_cash_balance
 uv run macro-observatory build-derived treasury_tga
 ```
 
+## Publish Fed Net Liquidity Artifacts
+
+Publish compact browser-facing artifacts from the derived Fed Net Liquidity cache:
+
+```powershell
+uv run macro-observatory publish fed_net_liquidity
+```
+
+This command reads:
+
+```text
+data/cache/derived/fed_net_liquidity.parquet
+data/cache/metadata/fed_net_liquidity.json
+```
+
+and writes generated static-site artifacts:
+
+```text
+site/data/fed-net-liquidity.json
+site/data/fed-net-liquidity.csv
+site/data/fed-net-liquidity-metadata.json
+```
+
+The JSON artifact is a compact records array with `YYYY-MM-DD` date strings, lowercase stable column names, and raw numeric values in U.S. dollars. Missing values are written as JSON `null`.
+
+The metadata artifact records the formula, units, source dataset IDs, source row counts, date range, dataset build timestamp, artifact filenames, and chart-series labels. It intentionally omits local cache paths and secrets.
+
+`site/data/` is generated output and is ignored by git.
+
+If the derived cache is missing, run this first:
+
+```powershell
+uv run macro-observatory build-derived fed_net_liquidity
+```
+
+Use a different static-site output directory when needed:
+
+```powershell
+uv run macro-observatory publish fed_net_liquidity --site-dir scratch-site
+```
+
 ## Inspect Dataset Metadata
 
 ```powershell
@@ -353,6 +394,7 @@ uv run macro-observatory --data-dir scratch-data update nyfed_rrp
 uv run macro-observatory --data-dir scratch-data update treasury_dts_operating_cash_balance
 uv run macro-observatory --data-dir scratch-data build-derived treasury_tga
 uv run macro-observatory --data-dir scratch-data build-derived fed_net_liquidity
+uv run macro-observatory --data-dir scratch-data publish fed_net_liquidity --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data info nyfed_rrp
 uv run macro-observatory --data-dir scratch-data info treasury_dts_operating_cash_balance
 uv run macro-observatory --data-dir scratch-data info treasury_tga

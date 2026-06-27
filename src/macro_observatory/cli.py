@@ -12,6 +12,12 @@ from macro_observatory.cache import load_metadata, update_dataset
 from macro_observatory.data import load_dataset
 from macro_observatory.derived import DerivedDatasetError, build_derived_dataset
 from macro_observatory.models import UpdateResult
+from macro_observatory.publish import (
+    DEFAULT_SITE_DIR,
+    PublishDatasetError,
+    PublishResult,
+    publish_dataset,
+)
 from macro_observatory.registry import DEFAULT_DATA_DIR, build_registry, get_dataset_spec
 
 
@@ -43,6 +49,16 @@ def _print_result(prefix: str, result: UpdateResult, *, rows_label: str = "rows 
     print(f"metadata: {result.metadata_path}")
 
 
+def _print_publish_result(result: PublishResult) -> None:
+    print(f"published {result.dataset_id}")
+    print(f"rows published: {result.rows_published:,}")
+    print(f"date range: {result.min_date} to {result.max_date}")
+    print(f"output dir: {result.output_dir}")
+    print(f"json: {result.json_path}")
+    print(f"csv: {result.csv_path}")
+    print(f"metadata: {result.metadata_path}")
+
+
 def _update(args: argparse.Namespace) -> int:
     spec = get_dataset_spec(args.dataset_id, _data_dir(args.data_dir))
     if spec.kind == "derived":
@@ -60,6 +76,21 @@ def _build_derived(args: argparse.Namespace) -> int:
         print(str(exc))
         return 1
     _print_result("built", result, rows_label="rows built")
+    return 0
+
+
+def _publish(args: argparse.Namespace) -> int:
+    site_dir = Path(args.site_dir) if args.site_dir else DEFAULT_SITE_DIR
+    try:
+        result = publish_dataset(
+            args.dataset_id,
+            data_dir=_data_dir(args.data_dir),
+            site_dir=site_dir,
+        )
+    except PublishDatasetError as exc:
+        print(str(exc))
+        return 1
+    _print_publish_result(result)
     return 0
 
 
@@ -124,6 +155,11 @@ def build_parser() -> argparse.ArgumentParser:
     build_derived_parser = subparsers.add_parser("build-derived", help="Build one derived dataset")
     build_derived_parser.add_argument("dataset_id")
     build_derived_parser.set_defaults(func=_build_derived)
+
+    publish_parser = subparsers.add_parser("publish", help="Publish browser-facing artifacts")
+    publish_parser.add_argument("dataset_id")
+    publish_parser.add_argument("--site-dir", help="Static site output directory")
+    publish_parser.set_defaults(func=_publish)
 
     info_parser = subparsers.add_parser("info", help="Show dataset metadata")
     info_parser.add_argument("dataset_id")
