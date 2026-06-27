@@ -11,6 +11,7 @@ import pandas as pd
 from macro_observatory.cache import load_metadata, update_dataset
 from macro_observatory.data import load_dataset
 from macro_observatory.derived import DerivedDatasetError, build_derived_dataset
+from macro_observatory.diagnostics import build_storage_report, render_storage_report
 from macro_observatory.models import UpdateResult
 from macro_observatory.publish import (
     DEFAULT_SITE_DIR,
@@ -94,6 +95,13 @@ def _publish(args: argparse.Namespace) -> int:
     return 0
 
 
+def _storage_report(args: argparse.Namespace) -> int:
+    site_dir = Path(args.site_dir) if args.site_dir else DEFAULT_SITE_DIR
+    report = build_storage_report(data_dir=_data_dir(args.data_dir), site_dir=site_dir)
+    print(render_storage_report(report))
+    return 0
+
+
 def _info(args: argparse.Namespace) -> int:
     spec = get_dataset_spec(args.dataset_id, _data_dir(args.data_dir))
     metadata = load_metadata(spec)
@@ -160,6 +168,12 @@ def build_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument("dataset_id")
     publish_parser.add_argument("--site-dir", help="Static site output directory")
     publish_parser.set_defaults(func=_publish)
+
+    storage_report_parser = subparsers.add_parser(
+        "storage-report", help="Show known project data file sizes"
+    )
+    storage_report_parser.add_argument("--site-dir", help="Static site output directory")
+    storage_report_parser.set_defaults(func=_storage_report)
 
     info_parser = subparsers.add_parser("info", help="Show dataset metadata")
     info_parser.add_argument("dataset_id")

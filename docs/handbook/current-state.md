@@ -30,6 +30,7 @@ Completed implementation checkpoints:
 - Derived Treasury General Account as dataset ID `treasury_tga`.
 - Derived Fed Net Liquidity as dataset ID `fed_net_liquidity`.
 - Published Fed Net Liquidity static artifacts under `site/data/`.
+- Cross-platform storage diagnostics via `storage-report`.
 
 ## Implemented Architecture
 
@@ -42,14 +43,16 @@ Current package files:
 - `src/macro_observatory/sources/nyfed.py`: New York Fed reverse repo source adapter.
 - `src/macro_observatory/sources/treasury.py`: Treasury Fiscal Data source adapter.
 - `src/macro_observatory/derived.py`: derived dataset builders for `treasury_tga` and `fed_net_liquidity`.
+- `src/macro_observatory/diagnostics.py`: cross-platform storage report for known cache, metadata, and site data files.
 - `src/macro_observatory/publish.py`: static artifact publisher for browser-facing data files.
 - `src/macro_observatory/registry.py`: dataset registry for source and derived datasets.
 - `src/macro_observatory/data.py`: user-facing `load_dataset(...)` helper.
-- `src/macro_observatory/cli.py`: CLI commands for datasets, update, build-derived, publish, info, show, and export.
+- `src/macro_observatory/cli.py`: CLI commands for datasets, update, build-derived, publish, storage-report, info, show, and export.
 
 Current tests:
 
 - `tests/test_cache.py`: verifies cache writing, metadata, overlap behavior, and deduplication preference for newer rows.
+- `tests/test_diagnostics.py`: verifies known-file storage reporting, fixed KB formatting, missing-file reporting, totals, and CLI wiring.
 - `tests/test_registry.py`: verifies registry entries and known-ID error messages.
 - `tests/test_nyfed.py`: verifies New York Fed RRP fetch parameters, Small Value Exercise filtering, duplicate-date amount selection, and cold-cache start date.
 - `tests/test_treasury.py`: verifies Treasury Fiscal Data pagination, date filtering, metadata capture, and cold-cache behavior.
@@ -118,6 +121,12 @@ Publish browser-facing artifacts:
 uv run macro-observatory publish fed_net_liquidity
 ```
 
+Show storage diagnostics:
+
+```powershell
+uv run macro-observatory storage-report
+```
+
 Inspect metadata:
 
 ```powershell
@@ -157,7 +166,7 @@ df_tga = load_dataset("treasury_tga")
 df_net_liquidity = load_dataset("fed_net_liquidity")
 ```
 
-Verification commands that passed after the `publish fed_net_liquidity` checkpoint:
+Verification commands that passed after the `storage-report` checkpoint:
 
 ```powershell
 uv run pytest
@@ -422,6 +431,18 @@ site/data/fed-net-liquidity-metadata.json
 The JSON artifact is a records array with `YYYY-MM-DD` date strings and JSON `null` for missing values. The metadata artifact includes formula, units, source dataset IDs, source row counts, date range, dataset build timestamp, artifact filenames, and chart-series labels. It omits local cache paths and secrets. `site/data/` is ignored by git.
 
 A live publish wrote 5,374 JSON records and 5,374 CSV rows with date range `2002-12-18` to `2026-06-26`. Local artifact sizes were about 1.38 MB for JSON, 700 KB for CSV, and 2 KB for metadata.
+
+The `storage-report` command reports known source caches, derived caches, metadata files, and published site artifacts with fixed-width `KB` size columns, local modified timestamps, group totals, and explicit missing-file rows. It supports `--data-dir` and `--site-dir` for scratch directories.
+
+A live storage report after this checkpoint showed these totals:
+
+```text
+source cache        350.8 KB
+derived cache       384.2 KB
+metadata              7.6 KB
+site data         2,037.2 KB
+overall           2,779.8 KB
+```
 
 Legacy comparison against the old pickle-backed formula matched exactly for 4,833 overlapping rows through `2024-05-01`, the date where all old component source pickles still had complete coverage. Tail differences after that were due to the old pickles forward-filling stale component values while the current source caches have newer values.
 

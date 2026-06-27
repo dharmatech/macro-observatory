@@ -287,6 +287,44 @@ Use a different static-site output directory when needed:
 uv run macro-observatory publish fed_net_liquidity --site-dir scratch-site
 ```
 
+## Storage Report
+
+Show a concise cross-platform report of known project data files:
+
+```powershell
+uv run macro-observatory storage-report
+```
+
+The report includes known source caches, derived caches, metadata files, and published site data artifacts. It does not scan arbitrary files under `data/` or `site/`.
+
+Sizes are shown in fixed-width `KB` units with one decimal place and comma separators. Modified timestamps use this fixed column format:
+
+```text
+YYYY-MM-DD HH:MM:SS
+```
+
+Missing expected files are shown explicitly with a blank size and `missing` in the modified column.
+
+Example shape:
+
+```text
+Group              Size KB  Modified             File
+----------------  -------  -------------------  ----
+source cache          21.0  2026-06-27 12:03:14  data/cache/sources/fred_walcl.parquet
+site data          1,352.1  2026-06-27 15:08:31  site/data/fed-net-liquidity.json
+
+Totals
+source cache          21.0 KB
+site data          1,352.1 KB
+overall            1,373.1 KB
+```
+
+Use a different static-site output directory when needed:
+
+```powershell
+uv run macro-observatory storage-report --site-dir scratch-site
+```
+
 ## Inspect Dataset Metadata
 
 ```powershell
@@ -395,6 +433,7 @@ uv run macro-observatory --data-dir scratch-data update treasury_dts_operating_c
 uv run macro-observatory --data-dir scratch-data build-derived treasury_tga
 uv run macro-observatory --data-dir scratch-data build-derived fed_net_liquidity
 uv run macro-observatory --data-dir scratch-data publish fed_net_liquidity --site-dir scratch-site
+uv run macro-observatory --data-dir scratch-data storage-report --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data info nyfed_rrp
 uv run macro-observatory --data-dir scratch-data info treasury_dts_operating_cash_balance
 uv run macro-observatory --data-dir scratch-data info treasury_tga
