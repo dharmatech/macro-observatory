@@ -69,6 +69,40 @@ Possible managed-service pieces:
 
 This should be treated as an optional wrapper around the project, not as part of the core data layer.
 
+## Future Alerting Layer
+
+A future hosted or self-hosted deployment could add an alerting layer on top of the same datasets used by the charts. This should be modeled as another downstream consumer of the data pipeline, not as part of the charting layer.
+
+The preferred shape is:
+
+```text
+source caches
+  -> derived datasets
+  -> published web artifacts
+  -> public static charts
+
+source caches
+  -> derived datasets
+  -> alert rules
+  -> alert events
+  -> delivery channels
+```
+
+Example alert rules could include:
+
+- all-time high or all-time low,
+- largest daily, weekly, or release-over-release change,
+- rolling-window z-score or percentile outlier,
+- threshold crossing,
+- spread or inversion event,
+- missing, stale, or delayed source data.
+
+Alert evaluation should consume stable Pandas-friendly datasets and produce structured alert events. Delivery should be pluggable and platform-specific. Early local versions could write alert events to JSON, logs, or a static alerts page. A future managed instance could support email, SMS, webhooks, Discord or Slack, RSS/Atom, or social posting.
+
+If alerts become part of a paid hosted offering, the paid component should be framed as hosted convenience, delivery infrastructure, preference management, and operational maintenance. The underlying public source data and open data-processing code should remain separate from that service wrapper.
+
+This is not part of the first milestone. The current design implication is only to keep derived datasets stable, metadata-rich, and easy for non-chart consumers to load.
+
 ## Paywall Security Boundary
 
 A real paywall cannot rely only on client-side JavaScript.
