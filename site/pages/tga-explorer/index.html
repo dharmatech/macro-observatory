@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TGA Explorer | Macro Observatory</title>
+  <link rel="stylesheet" href="../../assets/css/site.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+  <script src="../../assets/js/site.js" defer></script>
+  <script src="../../assets/js/tga-explorer.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand-link" href="../../">Macro Observatory</a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="../../">Pages</a>
+      <a href="../../data/tga-explorer.csv">CSV</a>
+    </nav>
+  </header>
+
+  <main class="site-shell dashboard-shell">
+    <section class="page-heading dashboard-heading">
+      <div>
+        <p class="eyebrow">Daily Treasury Statement</p>
+        <h1>TGA Explorer</h1>
+        <p class="heading-summary" id="dataset-summary">Loading dataset metadata</p>
+      </div>
+      <div class="metadata-block" aria-label="Dataset build details">
+        <span>Built</span>
+        <strong id="built-at">Loading</strong>
+      </div>
+    </section>
+
+    <div class="alert" id="page-alert" role="alert" hidden></div>
+    <div class="loading-row" id="loading-row">Loading TGA Explorer metadata...</div>
+
+    <section class="metric-grid" aria-label="Dataset summary">
+      <article class="metric-tile">
+        <span>Latest Date</span>
+        <strong id="metric-latest-date">-</strong>
+      </article>
+      <article class="metric-tile metric-primary">
+        <span>Dataset Rows</span>
+        <strong id="metric-row-count">-</strong>
+      </article>
+      <article class="metric-tile">
+        <span>Filtered Rows</span>
+        <strong id="metric-filtered-row-count">-</strong>
+      </article>
+      <article class="metric-tile">
+        <span>Categories</span>
+        <strong id="metric-category-count">-</strong>
+      </article>
+    </section>
+
+    <section class="explorer-layout" aria-label="TGA Explorer controls and chart">
+      <aside class="control-panel" aria-labelledby="controls-heading">
+        <div class="section-heading-row compact-heading-row">
+          <h2 id="controls-heading">Controls</h2>
+          <span class="range-label" id="control-row-count">-</span>
+        </div>
+
+        <label class="form-field" for="metric-select">
+          <span>Metric</span>
+          <select id="metric-select"></select>
+        </label>
+
+        <div class="control-pair">
+          <label class="form-field" for="year-start-input">
+            <span>Year Start</span>
+            <input id="year-start-input" type="number" min="1900" step="1" inputmode="numeric">
+          </label>
+          <label class="form-field" for="minimum-amount-input">
+            <span>Minimum</span>
+            <input id="minimum-amount-input" type="number" min="0" step="1000" inputmode="numeric">
+          </label>
+        </div>
+
+        <fieldset class="checkbox-group">
+          <legend>Transactions</legend>
+          <label class="checkbox-row">
+            <input id="deposits-checkbox" type="checkbox">
+            <span>Deposits</span>
+          </label>
+          <label class="checkbox-row">
+            <input id="withdrawals-checkbox" type="checkbox">
+            <span>Withdrawals</span>
+          </label>
+          <label class="checkbox-row">
+            <input id="public-debt-checkbox" type="checkbox">
+            <span>Public debt</span>
+          </label>
+        </fieldset>
+
+        <fieldset class="checkbox-group category-group">
+          <legend>Categories</legend>
+          <label class="checkbox-row">
+            <input id="category-filter-checkbox" type="checkbox">
+            <span>Filter categories</span>
+          </label>
+          <select id="category-select" class="category-select" multiple size="12" disabled aria-label="Transaction categories"></select>
+          <p class="control-help" id="category-help">Loading categories</p>
+        </fieldset>
+
+        <div class="button-row">
+          <button class="secondary-button" id="reset-button" type="button">Reset</button>
+        </div>
+      </aside>
+
+      <div class="explorer-main">
+        <section class="chart-section explorer-chart-section" aria-labelledby="chart-heading">
+          <div class="section-heading-row">
+            <h2 id="chart-heading">Deposits And Withdrawals</h2>
+            <span class="range-label" id="filtered-range-label">-</span>
+          </div>
+          <div class="guardrail-message" id="guardrail-message" hidden></div>
+          <div class="chart-frame tga-chart-frame">
+            <div id="tga-chart" class="plotly-chart tga-chart" aria-label="TGA Explorer chart"></div>
+          </div>
+          <div class="diagnostics-bar" id="diagnostics-bar">Rows - | Data - | Parse - | Filter - | Trace - | Render -</div>
+        </section>
+
+        <section class="details-grid explorer-details" aria-label="Dataset details">
+          <article class="detail-panel">
+            <h2>Dataset</h2>
+            <dl class="detail-list">
+              <div>
+                <dt>Units</dt>
+                <dd id="metadata-units">-</dd>
+              </div>
+              <div>
+                <dt>Source</dt>
+                <dd id="metadata-source">-</dd>
+              </div>
+              <div>
+                <dt>Policy</dt>
+                <dd id="metadata-policy">-</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article class="detail-panel">
+            <h2>Source Rows</h2>
+            <div class="source-row-list" id="source-row-list"></div>
+          </article>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <noscript>
+    <div class="noscript-message">This page needs JavaScript to load the published data artifact.</div>
+  </noscript>
+</body>
+</html>

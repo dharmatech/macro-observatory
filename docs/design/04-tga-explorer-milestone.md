@@ -107,15 +107,15 @@ deposits: on
 withdrawals: on
 public debt: off
 year start: 2022
-minimum amount: 100000
+minimum amount: 115000 current page default
 ```
 
-The minimum amount default should continue to depend on the selected metric:
+The minimum amount default should continue to depend on the selected metric. The original legacy FYTD default was `100000`, but the current static page starts at `115000` so the current artifact renders under the initial guardrail:
 
 ```text
 transaction_today_amt: 1000
 transaction_mtd_amt: 10000
-transaction_fytd_amt: 100000
+transaction_fytd_amt: 100000 legacy, 115000 current page default
 ```
 
 ## Filter Semantics
@@ -237,6 +237,27 @@ Complete when the static site can:
 - display subtle timing diagnostics,
 - link from the site index to the new page.
 
+The first page checkpoint is implemented.
+
+Implemented files:
+
+```text
+site/pages/tga-explorer/index.html
+site/assets/js/tga-explorer.js
+site/assets/css/site.css
+site/index.html
+```
+
+The page keeps the split JSON artifact in array form, builds Plotly traces only after filtering, and refuses to render when filtered rows exceed the metadata guardrail.
+
+Local data check at implementation time:
+
+```text
+legacy FYTD minimum 100000: 10,606 rows, above guardrail
+current FYTD minimum 115000: 9,806 rows, 24 categories
+Node local JSON parse baseline: about 946 ms
+```
+
 ## Non-Goals
 
 - Port every TGA Explorer variant in this checkpoint.
@@ -249,7 +270,7 @@ Complete when the static site can:
 ## Open Questions
 
 - Is the first performance limit data transfer, JSON parsing, filtering, trace construction, or Plotly rendering?
-- Is `10000` rows the right initial render threshold?
+- Is `10000` rows the right initial render threshold after browser testing?
 - Should public debt be controlled by category text matching only, or should a reviewed category list be maintained?
 - Should the category multiselect include search behavior for large category lists?
 - Should future TGA Explorer variants share the same browser artifact or publish separate derived artifacts?

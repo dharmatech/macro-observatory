@@ -396,10 +396,11 @@ The default URL is:
 http://localhost:8000/
 ```
 
-The root page lists available static pages. The first dashboard page is:
+The root page lists available static pages. Current dashboard pages are:
 
 ```text
 http://localhost:8000/pages/fed-net-liquidity/
+http://localhost:8000/pages/tga-explorer/
 ```
 
 The Fed Net Liquidity page loads these published artifacts:
@@ -409,10 +410,23 @@ site/data/fed-net-liquidity.json
 site/data/fed-net-liquidity-metadata.json
 ```
 
-If those files are missing or stale, run this first:
+The TGA Explorer page loads these published artifacts:
+
+```text
+site/data/tga-explorer.json
+site/data/tga-explorer-metadata.json
+```
+
+If the Fed Net Liquidity files are missing or stale, run this first:
 
 ```powershell
 uv run macro-observatory publish fed_net_liquidity
+```
+
+If the TGA Explorer files are missing or stale, run this first:
+
+```powershell
+uv run macro-observatory publish treasury_dts_deposits_withdrawals_operating_cash_explorer
 ```
 
 Use a different site directory or port when needed:

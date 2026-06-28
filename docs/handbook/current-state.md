@@ -47,8 +47,9 @@ Current implementation priorities:
 - Treasury Fiscal Data Deposits and Withdrawals source dataset: `treasury_dts_deposits_withdrawals_operating_cash`.
 - Derived TGA Explorer dataset: `treasury_dts_deposits_withdrawals_operating_cash_explorer`.
 - TGA Explorer published browser artifacts under `site/data/`.
+- TGA Explorer static page UI under `site/pages/tga-explorer/`.
 
-The TGA Explorer data artifact checkpoint is complete. The TGA Explorer page UI has not been built yet.
+The TGA Explorer data artifact checkpoint and first page UI checkpoint are complete.
 
 ## Implemented Architecture
 
@@ -72,9 +73,11 @@ Current static-site files:
 
 - `site/index.html`
 - `site/pages/fed-net-liquidity/index.html`
+- `site/pages/tga-explorer/index.html`
 - `site/assets/css/site.css`
 - `site/assets/js/site.js`
 - `site/assets/js/fed-net-liquidity.js`
+- `site/assets/js/tga-explorer.js`
 
 Generated data under `data/cache/` and `site/data/` is ignored by git.
 
@@ -166,6 +169,7 @@ uv run ruff check .
 uv run mypy .
 node --check site/assets/js/site.js
 node --check site/assets/js/fed-net-liquidity.js
+node --check site/assets/js/tga-explorer.js
 ```
 
 ## Current Data Checkpoints
@@ -264,7 +268,7 @@ Current derived columns:
 record_date, account_type, transaction_type, transaction_catg, src_line_nbr, transaction_today_amt, transaction_mtd_amt, transaction_fytd_amt
 ```
 
-The derived cache keeps `src_line_nbr` for traceability, applies the baseline category exclusions from the legacy Streamlit TGA Explorer page, and records the sign policy in metadata. Amounts remain in Treasury's published sign; the future browser page should render withdrawals as negative values.
+The derived cache keeps `src_line_nbr` for traceability, applies the baseline category exclusions from the legacy Streamlit TGA Explorer page, and records the sign policy in metadata. Amounts remain in Treasury's published sign; the browser page renders withdrawals as negative values.
 
 Latest local metadata at this checkpoint:
 
@@ -303,6 +307,17 @@ Published metadata includes:
 - `sign_policy`
 - `render_guardrail: { max_rows: 10000 }`
 
+Static page:
+
+```text
+site/pages/tga-explorer/index.html
+site/assets/js/tga-explorer.js
+```
+
+The page lazy-loads `tga-explorer.json`, keeps the split payload in array form, provides the base legacy controls, renders a relative Plotly bar chart, enforces the metadata render guardrail, and shows timing diagnostics for data fetch, JSON parse, filtering, trace preparation, and Plotly rendering.
+
+The legacy default `transaction_fytd_amt` minimum of `100000` currently filters to `10,606` rows, slightly above the `10,000` row guardrail. The static page therefore starts the FYTD minimum at `115000`, which filters the current artifact to `9,806` rows and `24` categories so the first load can render. Users can still enter `100000` manually to test the legacy threshold and guardrail behavior.
+
 ## Current Storage Snapshot
 
 A live `uv run macro-observatory storage-report` after the TGA Explorer data artifact checkpoint showed:
@@ -337,27 +352,24 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is the TGA Explorer static page UI.
+The next likely checkpoint is manual browser inspection of the TGA Explorer page, followed by GitHub Pages deployment automation if the page behavior is acceptable.
 
-Recommended scope:
+Recommended manual checks:
 
-- Add `site/pages/tga-explorer/`.
-- Link it from `site/index.html`.
-- Load `site/data/tga-explorer.json` and `site/data/tga-explorer-metadata.json`.
-- Decode the JSON split payload into row objects or column arrays in browser code.
-- Implement the base controls from the legacy Streamlit page: metric select, category filter, deposits toggle, withdrawals toggle, public debt toggle, year start, and minimum amount.
-- Render a Plotly baseline chart.
-- Enforce the metadata render guardrail before drawing.
-- Show a subtle diagnostics line for rows, fetch time, parse time, filter time, trace prep time, and render time.
+- Load `http://localhost:8000/pages/tga-explorer/` with `uv run macro-observatory serve-site` running.
+- Record the diagnostics line after first render.
+- Try the legacy FYTD minimum `100000` and confirm the guardrail refuses to render over `10,000` rows.
+- Try narrower category filters and confirm chart updates remain responsive.
+- Verify the existing Fed Net Liquidity page still behaves normally.
 
-After that page checkpoint, GitHub Pages deployment and GitHub Actions refresh workflows are still open.
+After manual inspection, GitHub Pages deployment and GitHub Actions refresh workflows are still open.
 
 ## Known Open Questions
 
 - The old README says `Fed Net Liquidity = WALCL - RRP - TGA`, while the old implementation computes `NL = WALCL - RRP - TGA - REM`. The current implementation intentionally reproduces the old code formula and records it in metadata, but the public label should still be reviewed.
 - The final chart label for `RESPPLLOPNWW` should be reviewed if it remains the `REM` term.
 - The first static page uses Plotly from a CDN; long-term vendoring or a frontend build system remains undecided.
-- The TGA Explorer browser artifact is much larger than Fed Net Liquidity. The next page checkpoint should measure whether the bottleneck is fetch, JSON parse, filtering, trace construction, or Plotly rendering.
+- The TGA Explorer browser artifact is much larger than Fed Net Liquidity. The page now reports fetch, JSON parse, filtering, trace construction, and Plotly render timing, but those numbers still need browser testing on real machines.
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
 - GitHub Actions deployment/update workflows are not implemented yet.
