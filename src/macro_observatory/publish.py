@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import pandas as pd
 
@@ -19,6 +20,9 @@ DEFAULT_SITE_DIR = Path("site")
 ARTIFACT_SCHEMA_VERSION = 1
 FED_NET_LIQUIDITY_DATASET_ID = "fed_net_liquidity"
 FED_NET_LIQUIDITY_ARTIFACT_STEM = "fed-net-liquidity"
+TGA_EXPLORER_DATASET_ID = "treasury_dts_deposits_withdrawals_operating_cash_explorer"
+TGA_EXPLORER_ARTIFACT_STEM = "tga-explorer"
+TGA_EXPLORER_RENDER_GUARDRAIL_ROWS = 10_000
 FED_NET_LIQUIDITY_COLUMNS = (
     "date",
     "walcl",
@@ -32,6 +36,14 @@ FED_NET_LIQUIDITY_COLUMNS = (
     "rem_diff",
     "fed_net_liquidity_diff",
 )
+TGA_EXPLORER_COLUMNS = (
+    "record_date",
+    "transaction_catg",
+    "transaction_type",
+    "transaction_today_amt",
+    "transaction_mtd_amt",
+    "transaction_fytd_amt",
+)
 FED_NET_LIQUIDITY_SERIES: dict[str, dict[str, str]] = {
     "walcl": {"label": "WALCL", "units": "U.S. dollars", "role": "component"},
     "rrp": {"label": "RRP", "units": "U.S. dollars", "role": "component"},
@@ -43,6 +55,26 @@ FED_NET_LIQUIDITY_SERIES: dict[str, dict[str, str]] = {
         "role": "total",
     },
 }
+TGA_EXPLORER_SERIES: dict[str, dict[str, str]] = {
+    "transaction_today_amt": {
+        "label": "Transaction Today Amount",
+        "units": "millions of U.S. dollars",
+        "role": "metric",
+    },
+    "transaction_mtd_amt": {
+        "label": "Transaction Month-to-Date Amount",
+        "units": "millions of U.S. dollars",
+        "role": "metric",
+    },
+    "transaction_fytd_amt": {
+        "label": "Transaction Fiscal-Year-to-Date Amount",
+        "units": "millions of U.S. dollars",
+        "role": "metric",
+    },
+}
+
+MetadataExtraBuilder = Callable[[pd.DataFrame, DatasetMetadata], dict[str, Any]]
+JsonOrientation = Literal["records", "split"]
 
 
 class PublishDatasetError(RuntimeError):
@@ -57,6 +89,9 @@ class PublishConfig:
     artifact_stem: str
     columns: tuple[str, ...]
     series: dict[str, dict[str, str]]
+    date_column: str = "date"
+    metadata_extra_builder: MetadataExtraBuilder | None = None
+    json_orientation: JsonOrientation = "records"
 
 
 @dataclass(frozen=True)
@@ -73,13 +108,62 @@ class PublishResult:
     metadata_path: Path
 
 
+def _string_values(df: pd.DataFrame, column: str) -> list[str]:
+    if column not in df.columns:
+        return []
+    values = df[column].dropna().astype(str).unique().tolist()
+    return sorted(values)
+
+
+def _source_cache_file(source_metadata: dict[str, Any]) -> str | None:
+    value = source_metadata.get("source_cache")
+    if not isinstance(value, str) or not value:
+        return None
+    return Path(value).name
+
+
+def _tga_explorer_metadata_extra(
+    published_df: pd.DataFrame,
+    metadata: DatasetMetadata,
+) -> dict[str, Any]:
+    source_metadata = metadata.source_metadata or {}
+    payload: dict[str, Any] = {
+        "source_endpoint": source_metadata.get("source_endpoint"),
+        "source_cache_file": _source_cache_file(source_metadata),
+        "source_row_count": source_metadata.get("source_row_count"),
+        "category_count": int(published_df["transaction_catg"].nunique(dropna=True)),
+        "transaction_types": _string_values(published_df, "transaction_type"),
+        "metric_columns": [
+            "transaction_today_amt",
+            "transaction_mtd_amt",
+            "transaction_fytd_amt",
+        ],
+        "category_column": "transaction_catg",
+        "transaction_type_column": "transaction_type",
+        "date_column": "record_date",
+        "excluded_categories": source_metadata.get("excluded_categories", []),
+        "sign_policy": source_metadata.get("sign_policy"),
+        "render_guardrail": {"max_rows": TGA_EXPLORER_RENDER_GUARDRAIL_ROWS},
+    }
+    return payload
+
+
 PUBLISH_CONFIGS = {
     FED_NET_LIQUIDITY_DATASET_ID: PublishConfig(
         dataset_id=FED_NET_LIQUIDITY_DATASET_ID,
         artifact_stem=FED_NET_LIQUIDITY_ARTIFACT_STEM,
         columns=FED_NET_LIQUIDITY_COLUMNS,
         series=FED_NET_LIQUIDITY_SERIES,
-    )
+    ),
+    TGA_EXPLORER_DATASET_ID: PublishConfig(
+        dataset_id=TGA_EXPLORER_DATASET_ID,
+        artifact_stem=TGA_EXPLORER_ARTIFACT_STEM,
+        columns=TGA_EXPLORER_COLUMNS,
+        series=TGA_EXPLORER_SERIES,
+        date_column="record_date",
+        metadata_extra_builder=_tga_explorer_metadata_extra,
+        json_orientation="split",
+    ),
 }
 
 
@@ -106,13 +190,20 @@ def _build_command(dataset_id: str, kind: str) -> str:
 def _prepare_published_dataframe(df: pd.DataFrame, config: PublishConfig) -> pd.DataFrame:
     require_columns(df, config.columns)
     published = df.loc[:, list(config.columns)].copy()
-    published["date"] = pd.to_datetime(published["date"], errors="raise").dt.strftime("%Y-%m-%d")
+    published[config.date_column] = pd.to_datetime(
+        published[config.date_column], errors="raise"
+    ).dt.strftime("%Y-%m-%d")
     return published
 
 
-def _records_for_json(df: pd.DataFrame) -> list[dict[str, Any]]:
+def _payload_for_json(df: pd.DataFrame, config: PublishConfig) -> Any:
     json_safe = df.astype(object).where(pd.notna(df), None)
-    return cast(list[dict[str, Any]], json_safe.to_dict(orient="records"))
+    if config.json_orientation == "records":
+        return cast(list[dict[str, Any]], json_safe.to_dict(orient="records"))
+    return {
+        "columns": list(df.columns),
+        "data": json_safe.values.tolist(),
+    }
 
 
 def _write_json(path: Path, payload: Any, *, compact: bool) -> None:
@@ -129,7 +220,7 @@ def _metadata_payload(
     *,
     config: PublishConfig,
     metadata: DatasetMetadata,
-    rows_published: int,
+    published_df: pd.DataFrame,
     json_path: Path,
     csv_path: Path,
     metadata_path: Path,
@@ -140,13 +231,14 @@ def _metadata_payload(
         "dataset_id": metadata.dataset_id,
         "title": metadata.title,
         "source_name": metadata.source_name,
-        "row_count": rows_published,
+        "row_count": len(published_df),
         "date_range": {
             "min": _date_or_none(metadata.min_date),
             "max": _date_or_none(metadata.max_date),
         },
         "dataset_built_at": metadata.last_successful_update.isoformat(),
         "columns": list(config.columns),
+        "json_orientation": config.json_orientation,
         "series": config.series,
         "source_units": metadata.source_units,
         "display_units": metadata.display_units,
@@ -161,6 +253,8 @@ def _metadata_payload(
     for key in ("formula", "forward_fill_policy", "unit_policy"):
         if key in source_metadata:
             payload[key] = source_metadata[key]
+    if config.metadata_extra_builder is not None:
+        payload.update(config.metadata_extra_builder(published_df, metadata))
     return payload
 
 
@@ -191,7 +285,7 @@ def publish_dataset(
     csv_path = output_dir / f"{config.artifact_stem}.csv"
     metadata_path = output_dir / f"{config.artifact_stem}-metadata.json"
 
-    _write_json(json_path, _records_for_json(published_df), compact=True)
+    _write_json(json_path, _payload_for_json(published_df, config), compact=True)
     output_dir.mkdir(parents=True, exist_ok=True)
     published_df.to_csv(csv_path, index=False)
     _write_json(
@@ -199,7 +293,7 @@ def publish_dataset(
         _metadata_payload(
             config=config,
             metadata=metadata,
-            rows_published=len(published_df),
+            published_df=published_df,
             json_path=json_path,
             csv_path=csv_path,
             metadata_path=metadata_path,

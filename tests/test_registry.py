@@ -17,6 +17,8 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
         "fred_resppllopnww",
         "fred_walcl",
         "nyfed_rrp",
+        "treasury_dts_deposits_withdrawals_operating_cash",
+        "treasury_dts_deposits_withdrawals_operating_cash_explorer",
         "treasury_dts_operating_cash_balance",
         "treasury_tga",
     ]
@@ -62,6 +64,31 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
     assert treasury.source_units == "millions of U.S. dollars"
     assert treasury.display_units == "millions of U.S. dollars"
 
+    deposits_withdrawals = registry["treasury_dts_deposits_withdrawals_operating_cash"]
+    assert (
+        deposits_withdrawals.title
+        == "Treasury Daily Treasury Statement Deposits and Withdrawals of Operating Cash"
+    )
+    assert deposits_withdrawals.source_name == "Treasury Fiscal Data"
+    assert deposits_withdrawals.kind == "source"
+    assert isinstance(deposits_withdrawals.adapter, TreasuryFiscalDataAdapter)
+    assert deposits_withdrawals.date_column == "record_date"
+    assert deposits_withdrawals.primary_key == (
+        "record_date",
+        "account_type",
+        "transaction_type",
+        "transaction_catg",
+        "src_line_nbr",
+    )
+    assert deposits_withdrawals.cache_path == (
+        tmp_path / "cache" / "sources" / "treasury_dts_deposits_withdrawals_operating_cash.parquet"
+    )
+    assert deposits_withdrawals.metadata_path == (
+        tmp_path / "cache" / "metadata" / "treasury_dts_deposits_withdrawals_operating_cash.json"
+    )
+    assert deposits_withdrawals.source_units == "millions of U.S. dollars"
+    assert deposits_withdrawals.display_units == "millions of U.S. dollars"
+
     tga = registry["treasury_tga"]
     assert tga.title == "Treasury General Account (TGA)"
     assert tga.source_name == "Macro Observatory Derived"
@@ -73,6 +100,27 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
     assert tga.metadata_path == tmp_path / "cache" / "metadata" / "treasury_tga.json"
     assert tga.source_units == "millions of U.S. dollars"
     assert tga.display_units == "millions of U.S. dollars"
+
+    tga_explorer = registry["treasury_dts_deposits_withdrawals_operating_cash_explorer"]
+    assert tga_explorer.title == "Treasury DTS Deposits and Withdrawals Explorer Dataset"
+    assert tga_explorer.source_name == "Macro Observatory Derived"
+    assert tga_explorer.kind == "derived"
+    assert tga_explorer.adapter is None
+    assert tga_explorer.date_column == "record_date"
+    assert tga_explorer.cache_path == (
+        tmp_path
+        / "cache"
+        / "derived"
+        / "treasury_dts_deposits_withdrawals_operating_cash_explorer.parquet"
+    )
+    assert tga_explorer.metadata_path == (
+        tmp_path
+        / "cache"
+        / "metadata"
+        / "treasury_dts_deposits_withdrawals_operating_cash_explorer.json"
+    )
+    assert tga_explorer.source_units == "millions of U.S. dollars"
+    assert tga_explorer.display_units == "millions of U.S. dollars"
 
     net_liquidity = registry["fed_net_liquidity"]
     assert net_liquidity.title == "Fed Net Liquidity"
@@ -99,6 +147,8 @@ def test_get_dataset_spec_error_lists_known_ids(tmp_path: Path) -> None:
     assert "fred_resppllopnww" in message
     assert "fred_walcl" in message
     assert "nyfed_rrp" in message
+    assert "treasury_dts_deposits_withdrawals_operating_cash" in message
+    assert "treasury_dts_deposits_withdrawals_operating_cash_explorer" in message
     assert "treasury_dts_operating_cash_balance" in message
     assert "treasury_tga" in message
 

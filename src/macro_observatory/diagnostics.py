@@ -11,8 +11,10 @@ from macro_observatory.registry import DEFAULT_DATA_DIR, build_registry
 
 SIZE_UNIT = "KB"
 BYTES_PER_KB = 1024
-TABLE_HEADER = "Group              Size KB  Modified             File"
-TABLE_SEPARATOR = "----------------  -------  -------------------  ----"
+GROUP_WIDTH = 16
+SIZE_WIDTH = 10
+TABLE_HEADER = f"{'Group':<{GROUP_WIDTH}}  {'Size KB':>{SIZE_WIDTH}}  {'Modified':<19}  File"
+TABLE_SEPARATOR = f"{'-' * GROUP_WIDTH}  {'-' * SIZE_WIDTH}  {'-' * 19}  ----"
 TOTALS_HEADER = "Totals"
 
 
@@ -117,15 +119,15 @@ def _format_path(path: Path) -> str:
 
 def _format_entry(entry: StorageReportEntry) -> str:
     return (
-        f"{entry.group:<16}  "
-        f"{_format_size_kb(entry.size_bytes):>7}  "
+        f"{entry.group:<{GROUP_WIDTH}}  "
+        f"{_format_size_kb(entry.size_bytes):>{SIZE_WIDTH}}  "
         f"{_format_modified(entry.modified):<19}  "
         f"{_format_path(entry.path)}"
     )
 
 
 def _format_total(group: str, size_bytes: int) -> str:
-    return f"{group:<16}  {_format_size_kb(size_bytes):>7} {SIZE_UNIT}"
+    return f"{group:<{GROUP_WIDTH}}  {_format_size_kb(size_bytes):>{SIZE_WIDTH}} {SIZE_UNIT}"
 
 
 def render_storage_report(report: StorageReport) -> str:

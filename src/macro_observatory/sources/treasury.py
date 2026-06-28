@@ -8,9 +8,16 @@ from typing import Any, Protocol, cast
 import pandas as pd
 import requests
 
-TREASURY_OPERATING_CASH_BALANCE_ENDPOINT = (
+TREASURY_FISCAL_SERVICE_BASE_URL = (
     "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
-    "v1/accounting/dts/operating_cash_balance"
+)
+
+TREASURY_OPERATING_CASH_BALANCE_ENDPOINT = (
+    f"{TREASURY_FISCAL_SERVICE_BASE_URL}v1/accounting/dts/operating_cash_balance"
+)
+
+TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT = (
+    f"{TREASURY_FISCAL_SERVICE_BASE_URL}v1/accounting/dts/deposits_withdrawals_operating_cash"
 )
 
 TREASURY_OPERATING_CASH_BALANCE_COLUMNS = (
@@ -23,6 +30,26 @@ TREASURY_OPERATING_CASH_BALANCE_COLUMNS = (
     "table_nbr",
     "table_nm",
     "sub_table_name",
+    "src_line_nbr",
+    "record_fiscal_year",
+    "record_fiscal_quarter",
+    "record_calendar_year",
+    "record_calendar_quarter",
+    "record_calendar_month",
+    "record_calendar_day",
+)
+
+TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_COLUMNS = (
+    "record_date",
+    "account_type",
+    "transaction_type",
+    "transaction_catg",
+    "transaction_catg_desc",
+    "transaction_today_amt",
+    "transaction_mtd_amt",
+    "transaction_fytd_amt",
+    "table_nbr",
+    "table_nm",
     "src_line_nbr",
     "record_fiscal_year",
     "record_fiscal_quarter",
@@ -215,6 +242,21 @@ def operating_cash_balance_adapter(
     """Build the adapter for the Daily Treasury Statement operating cash balance endpoint."""
     return TreasuryFiscalDataAdapter(
         TREASURY_OPERATING_CASH_BALANCE_ENDPOINT,
+        session=session,
+        timeout=timeout,
+        page_size=page_size,
+    )
+
+
+def deposits_withdrawals_operating_cash_adapter(
+    *,
+    session: HttpSession | None = None,
+    timeout: float = 30.0,
+    page_size: int = 10000,
+) -> TreasuryFiscalDataAdapter:
+    """Build the adapter for Daily Treasury Statement deposits/withdrawals rows."""
+    return TreasuryFiscalDataAdapter(
+        TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT,
         session=session,
         timeout=timeout,
         page_size=page_size,

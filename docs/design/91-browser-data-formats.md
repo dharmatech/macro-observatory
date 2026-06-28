@@ -131,6 +131,22 @@ Formats such as MessagePack, CBOR, Protocol Buffers, or custom binary encodings 
 
 They should not be the first experiments unless a specific frontend requirement makes them attractive.
 
+## Large-Dataset Rendering
+
+The TGA Explorer checkpoint should also be treated as an early performance probe for large browser-rendered datasets.
+
+If JSON payload size, browser parsing, JavaScript filtering, or Plotly rendering becomes a real bottleneck, the project should open a focused research track for large-dataset browser presentation. That research should not assume Plotly is permanent. Plotly is the practical baseline because it is familiar and already works for the first pages, but future interfaces may need a different rendering engine.
+
+Potential areas to evaluate:
+
+- WebGL-backed charting libraries for large scatter, bar, or time-series views.
+- Canvas-based renderers where SVG DOM size becomes a bottleneck.
+- Columnar browser data formats such as Arrow or Parquet paired with efficient array-based chart preparation.
+- DuckDB-Wasm or similar in-browser query engines for filtering and aggregation before rendering.
+- Chunked or pre-aggregated published artifacts for pages that do not need all detail at once.
+- Server-backed or hybrid interfaces for managed deployments if pure static hosting becomes too limiting.
+
+The current TGA Explorer implementation should still start with JSON and Plotly, plus render guardrails such as maximum row counts. The point of the checkpoint is to measure the baseline before adding complexity.
 ## Evaluation Plan
 
 A future compact-format checkpoint should be measured against the existing JSON baseline.

@@ -8,20 +8,50 @@ from typing import Any
 
 import pandas as pd
 
-from macro_observatory.cache import load_cache, replace_dataset
+from macro_observatory.cache import load_cache, load_metadata, replace_dataset
 from macro_observatory.models import DatasetSpec, UpdateResult
 from macro_observatory.registry import DEFAULT_DATA_DIR, get_dataset_spec
+from macro_observatory.sources.treasury import TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT
 from macro_observatory.validation import require_columns
 
 FRED_WALCL_DATASET_ID = "fred_walcl"
 FRED_RESPPLLOPNWW_DATASET_ID = "fred_resppllopnww"
 NYFED_RRP_DATASET_ID = "nyfed_rrp"
 TREASURY_OCB_DATASET_ID = "treasury_dts_operating_cash_balance"
+TREASURY_DTS_DEPOSITS_WITHDRAWALS_DATASET_ID = "treasury_dts_deposits_withdrawals_operating_cash"
 TREASURY_TGA_DATASET_ID = "treasury_tga"
+TREASURY_DTS_DEPOSITS_WITHDRAWALS_EXPLORER_DATASET_ID = (
+    "treasury_dts_deposits_withdrawals_operating_cash_explorer"
+)
 FED_NET_LIQUIDITY_DATASET_ID = "fed_net_liquidity"
 MILLIONS_TO_DOLLARS = 1_000_000.0
 
 TREASURY_TGA_COLUMNS = ("date", "tga", "source_account_type", "source_balance_field")
+TGA_EXPLORER_COLUMNS = (
+    "record_date",
+    "account_type",
+    "transaction_type",
+    "transaction_catg",
+    "src_line_nbr",
+    "transaction_today_amt",
+    "transaction_mtd_amt",
+    "transaction_fytd_amt",
+)
+TGA_EXPLORER_AMOUNT_COLUMNS = (
+    "transaction_today_amt",
+    "transaction_mtd_amt",
+    "transaction_fytd_amt",
+)
+TGA_EXPLORER_BASE_EXCLUDED_CATEGORIES = (
+    "null",
+    "Sub-Total Withdrawals",
+    "Sub-Total Deposits",
+    "Transfers from Depositaries",
+    "Transfers from Federal Reserve Account (Table V)",
+    "Transfers to Depositaries",
+    "Transfers to Federal Reserve Account (Table V)",
+    "ShTransfersCtohFederalmReserve Account (Table V)",
+)
 FED_NET_LIQUIDITY_COLUMNS = (
     "date",
     "walcl",
@@ -41,7 +71,11 @@ FED_NET_LIQUIDITY_INPUTS = (
     NYFED_RRP_DATASET_ID,
     TREASURY_TGA_DATASET_ID,
 )
-DERIVED_DATASET_IDS = (TREASURY_TGA_DATASET_ID, FED_NET_LIQUIDITY_DATASET_ID)
+DERIVED_DATASET_IDS = (
+    TREASURY_TGA_DATASET_ID,
+    TREASURY_DTS_DEPOSITS_WITHDRAWALS_EXPLORER_DATASET_ID,
+    FED_NET_LIQUIDITY_DATASET_ID,
+)
 
 
 class DerivedDatasetError(RuntimeError):
@@ -81,7 +115,7 @@ TGA_SELECTION_RULES = (
 
 
 def _build_command(dataset_id: str) -> str:
-    if dataset_id in {TREASURY_TGA_DATASET_ID, FED_NET_LIQUIDITY_DATASET_ID}:
+    if dataset_id in DERIVED_DATASET_IDS:
         return f"uv run macro-observatory build-derived {dataset_id}"
     return f"uv run macro-observatory update {dataset_id}"
 
@@ -133,6 +167,24 @@ def derive_treasury_tga(source_df: pd.DataFrame) -> pd.DataFrame:
     result = result.drop_duplicates(subset=["date"], keep="last")
     result = result.sort_values("date").reset_index(drop=True)
     return result.loc[:, list(TREASURY_TGA_COLUMNS)].copy()
+
+
+def derive_tga_explorer(source_df: pd.DataFrame) -> pd.DataFrame:
+    """Build the reduced, reusable TGA Explorer dataset from DTS deposits/withdrawals."""
+    require_columns(source_df, TGA_EXPLORER_COLUMNS)
+
+    result = source_df.loc[:, list(TGA_EXPLORER_COLUMNS)].copy()
+    result["record_date"] = pd.to_datetime(result["record_date"], errors="raise").dt.normalize()
+    result["src_line_nbr"] = pd.to_numeric(result["src_line_nbr"], errors="coerce")
+    for column in TGA_EXPLORER_AMOUNT_COLUMNS:
+        result[column] = pd.to_numeric(result[column], errors="coerce")
+
+    category = result["transaction_catg"].astype("string")
+    result = result.loc[~category.isin(TGA_EXPLORER_BASE_EXCLUDED_CATEGORIES)].copy()
+    result = result.sort_values(
+        ["record_date", "account_type", "transaction_type", "src_line_nbr"]
+    ).reset_index(drop=True)
+    return result.loc[:, list(TGA_EXPLORER_COLUMNS)].copy()
 
 
 def _component_frame(
@@ -224,6 +276,44 @@ def build_treasury_tga(*, data_dir: Path = DEFAULT_DATA_DIR) -> UpdateResult:
     return replace_dataset(target_spec, derived_df, source_metadata=metadata)
 
 
+def _source_endpoint(source_spec: DatasetSpec) -> str:
+    metadata = load_metadata(source_spec)
+    if metadata is not None and metadata.source_metadata is not None:
+        endpoint = metadata.source_metadata.get("endpoint_url")
+        if isinstance(endpoint, str):
+            return endpoint
+    return TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT
+
+
+def build_tga_explorer(*, data_dir: Path = DEFAULT_DATA_DIR) -> UpdateResult:
+    """Build and cache the reduced dataset used by the TGA Explorer page."""
+    source_spec = get_dataset_spec(TREASURY_DTS_DEPOSITS_WITHDRAWALS_DATASET_ID, data_dir)
+    target_spec = get_dataset_spec(TREASURY_DTS_DEPOSITS_WITHDRAWALS_EXPLORER_DATASET_ID, data_dir)
+
+    _require_cache(
+        source_spec,
+        target_dataset_id=TREASURY_DTS_DEPOSITS_WITHDRAWALS_EXPLORER_DATASET_ID,
+    )
+
+    source_df = load_cache(source_spec)
+    derived_df = derive_tga_explorer(source_df)
+    metadata: dict[str, Any] = {
+        "derived_from": [TREASURY_DTS_DEPOSITS_WITHDRAWALS_DATASET_ID],
+        "source_endpoint": _source_endpoint(source_spec),
+        "source_cache": str(source_spec.cache_path),
+        "source_row_count": len(source_df),
+        "source_rows": {TREASURY_DTS_DEPOSITS_WITHDRAWALS_DATASET_ID: len(source_df)},
+        "excluded_categories": list(TGA_EXPLORER_BASE_EXCLUDED_CATEGORIES),
+        "output_columns": list(TGA_EXPLORER_COLUMNS),
+        "amount_columns": list(TGA_EXPLORER_AMOUNT_COLUMNS),
+        "sign_policy": (
+            "Amounts are cached in Treasury's published sign. The browser renders "
+            "Withdrawals as negative values before charting."
+        ),
+    }
+    return replace_dataset(target_spec, derived_df, source_metadata=metadata)
+
+
 def build_fed_net_liquidity(*, data_dir: Path = DEFAULT_DATA_DIR) -> UpdateResult:
     """Build and cache the derived Fed net liquidity dataset."""
     specs = {
@@ -267,6 +357,8 @@ def build_derived_dataset(dataset_id: str, *, data_dir: Path = DEFAULT_DATA_DIR)
     """Build one derived dataset by ID."""
     if dataset_id == TREASURY_TGA_DATASET_ID:
         return build_treasury_tga(data_dir=data_dir)
+    if dataset_id == TREASURY_DTS_DEPOSITS_WITHDRAWALS_EXPLORER_DATASET_ID:
+        return build_tga_explorer(data_dir=data_dir)
     if dataset_id == FED_NET_LIQUIDITY_DATASET_ID:
         return build_fed_net_liquidity(data_dir=data_dir)
     known = ", ".join(DERIVED_DATASET_IDS)

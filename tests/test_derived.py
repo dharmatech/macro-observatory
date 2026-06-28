@@ -11,6 +11,7 @@ from macro_observatory.derived import (
     MissingSourceCacheError,
     build_derived_dataset,
     derive_fed_net_liquidity,
+    derive_tga_explorer,
     derive_treasury_tga,
 )
 from macro_observatory.registry import get_dataset_spec
@@ -73,6 +74,40 @@ def tga_rows(rows: list[tuple[str, float]]) -> pd.DataFrame:
             "tga": [value for _, value in rows],
             "source_account_type": "Treasury General Account (TGA) Closing Balance",
             "source_balance_field": "open_today_bal",
+        }
+    )
+
+
+def deposits_withdrawals_rows() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "record_date": ["2024-01-02", "2024-01-02", "2024-01-03", "2024-01-04"],
+            "account_type": [
+                "Treasury General Account (TGA)",
+                "Treasury General Account (TGA)",
+                "Treasury General Account (TGA)",
+                "Treasury General Account (TGA)",
+            ],
+            "transaction_type": ["Deposits", "Withdrawals", "Deposits", "Deposits"],
+            "transaction_catg": [
+                "Individual Income and Employment Taxes",
+                "Education Department programs",
+                "Sub-Total Deposits",
+                "Transfers from Depositaries",
+            ],
+            "transaction_catg_desc": ["Taxes", "Education", "Subtotal", "Transfer"],
+            "transaction_today_amt": ["100", "50", "999", "888"],
+            "transaction_mtd_amt": ["1000", "500", "999", "888"],
+            "transaction_fytd_amt": ["10000", "5000", "999", "888"],
+            "table_nbr": "II",
+            "table_nm": "Deposits and Withdrawals of Operating Cash",
+            "src_line_nbr": ["1", "2", "3", "4"],
+            "record_fiscal_year": "2024",
+            "record_fiscal_quarter": "2",
+            "record_calendar_year": "2024",
+            "record_calendar_quarter": "1",
+            "record_calendar_month": "01",
+            "record_calendar_day": ["02", "02", "03", "04"],
         }
     )
 
@@ -295,3 +330,87 @@ def test_build_derived_fed_net_liquidity_writes_cache_and_metadata(tmp_path: Pat
     assert metadata.source_metadata["formula"] == "fed_net_liquidity = walcl - rrp - tga - rem"
     assert metadata.source_metadata["unit_policy"]["output_units"] == "U.S. dollars"
     assert "forward-filled" in metadata.source_metadata["forward_fill_policy"]
+
+
+def test_derive_tga_explorer_reduces_columns_and_excludes_legacy_noise() -> None:
+    derived = derive_tga_explorer(deposits_withdrawals_rows())
+
+    assert derived.columns.tolist() == [
+        "record_date",
+        "account_type",
+        "transaction_type",
+        "transaction_catg",
+        "src_line_nbr",
+        "transaction_today_amt",
+        "transaction_mtd_amt",
+        "transaction_fytd_amt",
+    ]
+    assert derived["transaction_catg"].tolist() == [
+        "Individual Income and Employment Taxes",
+        "Education Department programs",
+    ]
+    assert derived["record_date"].dt.date.astype(str).tolist() == ["2024-01-02", "2024-01-02"]
+    assert derived["src_line_nbr"].tolist() == [1, 2]
+    assert derived["transaction_today_amt"].tolist() == [100, 50]
+
+
+def test_build_derived_tga_explorer_requires_source_cache(tmp_path: Path) -> None:
+    with pytest.raises(MissingSourceCacheError) as exc_info:
+        build_derived_dataset(
+            "treasury_dts_deposits_withdrawals_operating_cash_explorer",
+            data_dir=tmp_path,
+        )
+
+    assert "update treasury_dts_deposits_withdrawals_operating_cash" in str(exc_info.value)
+
+
+def test_build_derived_tga_explorer_writes_cache_and_metadata(tmp_path: Path) -> None:
+    source_spec = get_dataset_spec("treasury_dts_deposits_withdrawals_operating_cash", tmp_path)
+    target_spec = get_dataset_spec(
+        "treasury_dts_deposits_withdrawals_operating_cash_explorer",
+        tmp_path,
+    )
+    replace_dataset(
+        source_spec,
+        deposits_withdrawals_rows(),
+        source_metadata={"endpoint_url": "https://example.test/deposits-withdrawals"},
+    )
+
+    result = build_derived_dataset(
+        "treasury_dts_deposits_withdrawals_operating_cash_explorer",
+        data_dir=tmp_path,
+    )
+
+    assert result.dataset_id == "treasury_dts_deposits_withdrawals_operating_cash_explorer"
+    assert result.rows_before == 0
+    assert result.rows_fetched == 2
+    assert result.rows_after == 2
+    assert target_spec.cache_path.exists()
+    assert target_spec.metadata_path.exists()
+
+    cached = load_cache(target_spec)
+    assert cached["transaction_catg"].tolist() == [
+        "Individual Income and Employment Taxes",
+        "Education Department programs",
+    ]
+
+    loaded = load_dataset(
+        "treasury_dts_deposits_withdrawals_operating_cash_explorer",
+        data_dir=tmp_path,
+    )
+    assert loaded.equals(cached)
+
+    metadata = load_metadata(target_spec)
+    assert metadata is not None
+    assert metadata.dataset_id == "treasury_dts_deposits_withdrawals_operating_cash_explorer"
+    assert metadata.row_count == 2
+    assert metadata.source_metadata is not None
+    assert metadata.source_metadata["derived_from"] == [
+        "treasury_dts_deposits_withdrawals_operating_cash"
+    ]
+    assert metadata.source_metadata["source_row_count"] == 4
+    assert (
+        metadata.source_metadata["source_endpoint"] == "https://example.test/deposits-withdrawals"
+    )
+    assert "Sub-Total Deposits" in metadata.source_metadata["excluded_categories"]
+    assert "Withdrawals as negative" in metadata.source_metadata["sign_policy"]

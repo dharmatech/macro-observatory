@@ -11,8 +11,11 @@ from macro_observatory.cache import load_cache, load_metadata, update_dataset
 from macro_observatory.models import DatasetSpec
 from macro_observatory.registry import build_registry
 from macro_observatory.sources.treasury import (
+    TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_COLUMNS,
+    TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT,
     TREASURY_OPERATING_CASH_BALANCE_COLUMNS,
     TreasuryFiscalDataAdapter,
+    deposits_withdrawals_operating_cash_adapter,
 )
 
 
@@ -41,6 +44,73 @@ def operating_cash_balance_row(
         "record_calendar_quarter": "2",
         "record_calendar_month": record_date[5:7],
         "record_calendar_day": record_date[8:10],
+    }
+
+
+def deposits_withdrawals_row(
+    record_date: str,
+    transaction_type: str,
+    transaction_catg: str,
+    src_line_nbr: str,
+    *,
+    transaction_today_amt: str = "1",
+    transaction_mtd_amt: str = "2",
+    transaction_fytd_amt: str = "3",
+) -> dict[str, str]:
+    return {
+        "record_date": record_date,
+        "account_type": "Treasury General Account (TGA)",
+        "transaction_type": transaction_type,
+        "transaction_catg": transaction_catg,
+        "transaction_catg_desc": transaction_catg,
+        "transaction_today_amt": transaction_today_amt,
+        "transaction_mtd_amt": transaction_mtd_amt,
+        "transaction_fytd_amt": transaction_fytd_amt,
+        "table_nbr": "II",
+        "table_nm": "Deposits and Withdrawals of Operating Cash",
+        "src_line_nbr": src_line_nbr,
+        "record_fiscal_year": record_date[:4],
+        "record_fiscal_quarter": "3",
+        "record_calendar_year": record_date[:4],
+        "record_calendar_quarter": "2",
+        "record_calendar_month": record_date[5:7],
+        "record_calendar_day": record_date[8:10],
+    }
+
+
+def fiscal_payload_for_columns(
+    rows: list[dict[str, str]],
+    columns: tuple[str, ...],
+    *,
+    total_pages: int,
+    next_link: str | None = None,
+) -> dict[str, Any]:
+    labels = {column: column.replace("_", " ").title() for column in columns}
+    data_types = {column: "STRING" for column in columns}
+    data_types["record_date"] = "DATE"
+    data_formats = {column: "String" for column in columns}
+    data_formats["record_date"] = "YYYY-MM-DD"
+    for column in (
+        "close_today_bal",
+        "open_today_bal",
+        "transaction_today_amt",
+        "transaction_mtd_amt",
+        "transaction_fytd_amt",
+    ):
+        if column in data_types:
+            data_types[column] = "CURRENCY0"
+            data_formats[column] = "$1,000,000"
+    return {
+        "data": rows,
+        "meta": {
+            "count": len(rows),
+            "labels": labels,
+            "dataTypes": data_types,
+            "dataFormats": data_formats,
+            "total-count": len(rows),
+            "total-pages": total_pages,
+        },
+        "links": {"next": next_link},
     }
 
 
@@ -264,3 +334,48 @@ def test_treasury_operating_cash_balance_cache_uses_overlap_and_primary_key(tmp_
         date(2026, 6, 26),
     ]
     assert cached["open_today_bal"].tolist() == [901845, 870000, 880000]
+
+
+def test_treasury_deposits_withdrawals_adapter_uses_endpoint_and_schema() -> None:
+    row = deposits_withdrawals_row(
+        "2026-06-25",
+        "Deposits",
+        "Individual Income and Employment Taxes",
+        "10",
+    )
+    session = FakeSession(
+        responses=[
+            fiscal_payload_for_columns(
+                [row],
+                TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_COLUMNS,
+                total_pages=1,
+            )
+        ],
+        calls=[],
+    )
+    adapter = deposits_withdrawals_operating_cash_adapter(
+        session=session, timeout=9.0, page_size=50
+    )
+
+    df = adapter.fetch(date(2026, 6, 20))
+
+    assert session.calls == [
+        {
+            "url": TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT,
+            "params": {
+                "filter": "record_date:gte:2026-06-20",
+                "sort": "record_date,src_line_nbr",
+                "page[number]": "1",
+                "page[size]": "50",
+            },
+            "timeout": 9.0,
+        }
+    ]
+    assert tuple(df.columns) == TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_COLUMNS
+    assert df.loc[0, "transaction_catg"] == "Individual Income and Employment Taxes"
+
+    metadata = adapter.source_metadata()
+    assert metadata is not None
+    assert metadata["endpoint_url"] == TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT
+    assert metadata["rows_fetched"] == 1
+    assert metadata["fiscal_data_meta"]["dataFormats"]["transaction_today_amt"] == "$1,000,000"

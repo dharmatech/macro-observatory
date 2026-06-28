@@ -8,7 +8,9 @@ from macro_observatory.models import DatasetSpec
 from macro_observatory.sources.fred import FredSeriesAdapter
 from macro_observatory.sources.nyfed import NyFedReverseRepoAdapter
 from macro_observatory.sources.treasury import (
+    TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_COLUMNS,
     TREASURY_OPERATING_CASH_BALANCE_COLUMNS,
+    deposits_withdrawals_operating_cash_adapter,
     operating_cash_balance_adapter,
 )
 
@@ -99,6 +101,43 @@ def _treasury_operating_cash_balance_spec(source_dir: Path, metadata_dir: Path) 
     )
 
 
+def _treasury_deposits_withdrawals_operating_cash_spec(
+    source_dir: Path, metadata_dir: Path
+) -> DatasetSpec:
+    return DatasetSpec(
+        id="treasury_dts_deposits_withdrawals_operating_cash",
+        title="Treasury Daily Treasury Statement Deposits and Withdrawals of Operating Cash",
+        source_name="Treasury Fiscal Data",
+        adapter=deposits_withdrawals_operating_cash_adapter(),
+        date_column="record_date",
+        primary_key=(
+            "record_date",
+            "account_type",
+            "transaction_type",
+            "transaction_catg",
+            "src_line_nbr",
+        ),
+        overlap_days=14,
+        cache_path=source_dir / "treasury_dts_deposits_withdrawals_operating_cash.parquet",
+        metadata_path=metadata_dir / "treasury_dts_deposits_withdrawals_operating_cash.json",
+        required_columns=TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_COLUMNS,
+        numeric_columns=(
+            "transaction_today_amt",
+            "transaction_mtd_amt",
+            "transaction_fytd_amt",
+            "src_line_nbr",
+            "record_fiscal_year",
+            "record_fiscal_quarter",
+            "record_calendar_year",
+            "record_calendar_quarter",
+            "record_calendar_month",
+            "record_calendar_day",
+        ),
+        source_units=TREASURY_MILLIONS_USD,
+        display_units=TREASURY_MILLIONS_USD,
+    )
+
+
 def _treasury_tga_spec(derived_dir: Path, metadata_dir: Path) -> DatasetSpec:
     return DatasetSpec(
         id="treasury_tga",
@@ -112,6 +151,49 @@ def _treasury_tga_spec(derived_dir: Path, metadata_dir: Path) -> DatasetSpec:
         metadata_path=metadata_dir / "treasury_tga.json",
         required_columns=("date", "tga", "source_account_type", "source_balance_field"),
         numeric_columns=("tga",),
+        source_units=TREASURY_MILLIONS_USD,
+        display_units=TREASURY_MILLIONS_USD,
+        kind="derived",
+    )
+
+
+def _treasury_deposits_withdrawals_explorer_spec(
+    derived_dir: Path, metadata_dir: Path
+) -> DatasetSpec:
+    return DatasetSpec(
+        id="treasury_dts_deposits_withdrawals_operating_cash_explorer",
+        title="Treasury DTS Deposits and Withdrawals Explorer Dataset",
+        source_name="Macro Observatory Derived",
+        adapter=None,
+        date_column="record_date",
+        primary_key=(
+            "record_date",
+            "account_type",
+            "transaction_type",
+            "transaction_catg",
+            "src_line_nbr",
+        ),
+        overlap_days=0,
+        cache_path=derived_dir
+        / "treasury_dts_deposits_withdrawals_operating_cash_explorer.parquet",
+        metadata_path=metadata_dir
+        / "treasury_dts_deposits_withdrawals_operating_cash_explorer.json",
+        required_columns=(
+            "record_date",
+            "account_type",
+            "transaction_type",
+            "transaction_catg",
+            "src_line_nbr",
+            "transaction_today_amt",
+            "transaction_mtd_amt",
+            "transaction_fytd_amt",
+        ),
+        numeric_columns=(
+            "src_line_nbr",
+            "transaction_today_amt",
+            "transaction_mtd_amt",
+            "transaction_fytd_amt",
+        ),
         source_units=TREASURY_MILLIONS_USD,
         display_units=TREASURY_MILLIONS_USD,
         kind="derived",
@@ -172,7 +254,9 @@ def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
         ),
         _nyfed_rrp_spec(source_dir, metadata_dir),
         _treasury_operating_cash_balance_spec(source_dir, metadata_dir),
+        _treasury_deposits_withdrawals_operating_cash_spec(source_dir, metadata_dir),
         _treasury_tga_spec(derived_dir, metadata_dir),
+        _treasury_deposits_withdrawals_explorer_spec(derived_dir, metadata_dir),
         _fed_net_liquidity_spec(derived_dir, metadata_dir),
     )
     return {spec.id: spec for spec in specs}
