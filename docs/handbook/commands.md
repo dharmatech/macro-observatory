@@ -647,7 +647,8 @@ Update selected source caches and then rebuild all current derived caches and br
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
-uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --source-dataset fred_sp500 --require-fred-api-key
+uv run macro-observatory build-site --source-dataset fred_sp500 --require-fred-api-key
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```
 
 Targeted source-update mode validates that all current source cache and metadata files exist before it updates anything. It updates only the selected source datasets, rebuilds every current derived dataset, republishes every current browser artifact, and writes `site/.nojekyll`.
@@ -760,17 +761,22 @@ The workflow restores the GitHub Actions `data/cache/` snapshot, refuses to run 
 Current refresh groups:
 
 ```text
-rrp_daily       -> nyfed_rrp
-                  35 18 * * 1-5  # 18:35 UTC, 11:35 AM PDT / 10:35 AM PST
+rrp_daily                 -> nyfed_rrp
+                             35 18 * * 1-5  # 18:35 UTC, 11:35 AM PDT / 10:35 AM PST
 
-treasury_daily  -> treasury_dts_operating_cash_balance
-                  treasury_dts_deposits_withdrawals_operating_cash
-                  25 21 * * 1-5  # 21:25 UTC, 2:25 PM PDT / 1:25 PM PST
+treasury_daily            -> treasury_dts_operating_cash_balance
+                             treasury_dts_deposits_withdrawals_operating_cash
+                             25 21 * * 1-5  # 21:25 UTC, 2:25 PM PDT / 1:25 PM PST
 
-fred_weekly     -> fred_walcl
-                  fred_resppllopnww
-                  fred_sp500
-                  55 21 * * 4    # 21:55 UTC Thursday, 2:55 PM PDT / 1:55 PM PST
+treasury_auctions_daily   -> treasury_od_auctions_query
+                             10 22 * * 1-5  # 22:10 UTC, 3:10 PM PDT / 2:10 PM PST
+
+fred_market_daily         -> fred_sp500
+                             25 22 * * 1-5  # 22:25 UTC, 3:25 PM PDT / 2:25 PM PST
+
+fred_weekly               -> fred_walcl
+                             fred_resppllopnww
+                             55 21 * * 4    # 21:55 UTC Thursday, 2:55 PM PDT / 1:55 PM PST
 ```
 
 Manual dispatch from GitHub CLI after the workflow exists on `main`:
@@ -778,6 +784,8 @@ Manual dispatch from GitHub CLI after the workflow exists on `main`:
 ```powershell
 gh workflow run scheduled-refresh.yml --ref main -f refresh_group=rrp_daily
 gh workflow run scheduled-refresh.yml --ref main -f refresh_group=treasury_daily
+gh workflow run scheduled-refresh.yml --ref main -f refresh_group=treasury_auctions_daily
+gh workflow run scheduled-refresh.yml --ref main -f refresh_group=fred_market_daily
 gh workflow run scheduled-refresh.yml --ref main -f refresh_group=fred_weekly
 ```
 
@@ -788,13 +796,14 @@ gh run list --workflow scheduled-refresh.yml --limit 5
 gh run watch <run-id> --exit-status
 ```
 
-Equivalent local commands for the three refresh groups:
+Equivalent local commands for the current refresh groups:
 
 ```powershell
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
-uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --source-dataset fred_sp500 --require-fred-api-key
+uv run macro-observatory build-site --source-dataset fred_sp500 --require-fred-api-key
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```
 
 The scheduled workflow shares the `github-pages` concurrency group with `.github/workflows/pages.yml` and uses `cancel-in-progress: false`, so push deploys and scheduled source updates queue instead of canceling each other.

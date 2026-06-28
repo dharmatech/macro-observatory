@@ -66,7 +66,7 @@ Current implementation priorities:
 - Targeted source-update support via repeated `build-site --source-dataset ...` flags.
 - Scheduled data refresh workflow at `.github/workflows/scheduled-refresh.yml`.
 
-The TGA Explorer page UI checkpoint, Treasury Securities Net Issuance page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, push-triggered cache-only deployment checkpoint, targeted source-update checkpoint, and scheduled refresh workflow implementation checkpoint are complete. Live schedule validation remains next.
+The TGA Explorer page UI checkpoint, Treasury Securities Net Issuance page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, push-triggered cache-only deployment checkpoint, targeted source-update checkpoint, and scheduled refresh workflow implementation checkpoint are complete. Treasury auctions and daily SP500 scheduled refresh groups are being added next; live schedule validation remains open.
 
 ## Implemented Architecture
 
@@ -200,7 +200,9 @@ uv run macro-observatory build-site --require-fred-api-key
 uv run macro-observatory build-site --from-cache
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
-uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --source-dataset fred_sp500 --require-fred-api-key
+uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
+uv run macro-observatory build-site --source-dataset fred_sp500 --require-fred-api-key
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```
 
 Serve the static site locally:
@@ -335,7 +337,7 @@ rows fetched: 21
 rows after: 11,022
 ```
 
-This source dataset is wired into aggregate `build-site` and GitHub Pages deployment so the Treasury Securities Net Issuance page can publish from cache. Scheduled auctions refresh is intentionally still a future checkpoint.
+This source dataset is wired into aggregate `build-site` and GitHub Pages deployment so the Treasury Securities Net Issuance page can publish from cache. It is moving into the scheduled `treasury_auctions_daily` refresh group.
 
 ### Treasury Securities Net Issuance Derived Dataset
 
@@ -418,7 +420,7 @@ site/pages/treasury-securities-net-issuance/index.html
 site/assets/js/treasury-securities-net-issuance.js
 ```
 
-This derived dataset is wired into aggregate `build-site`, GitHub Pages deployment, and browser artifact publishing. Scheduled auctions refresh is intentionally still a future checkpoint.
+This derived dataset is wired into aggregate `build-site`, GitHub Pages deployment, browser artifact publishing, and the scheduled `treasury_auctions_daily` source refresh path.
 
 ### FRED SP500 Market Context
 
@@ -472,7 +474,7 @@ metadata JSON: 1.3 KB
 
 Published metadata records `market_context_role: daily_price_overlay`, the FRED source URL, and a rights note because the FRED `SP500` page identifies third-party copyright/licensing caveats.
 
-Refresh cadence note: `fred_sp500` is currently included in the existing `fred_weekly` refresh group for conservative cache maintenance. Because the overlay is now user-facing, the next checkpoint should consider whether SP500 belongs in a separate daily post-close FRED refresh group.
+Refresh cadence note: `fred_sp500` is moving from the existing `fred_weekly` refresh group into a separate `fred_market_daily` refresh group because the overlay is now user-facing.
 ### TGA Explorer Derived Dataset
 
 Derived from:
@@ -592,7 +594,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is scheduled refresh policy for newly added Treasury Securities dependencies: decide whether to add a daily post-close SP500 refresh group and when to add the Treasury auctions refresh group. Live scheduled refresh validation for existing groups also remains open.
+The next likely checkpoint is validating the newly added `treasury_auctions_daily` and `fred_market_daily` scheduled refresh groups after the workflow update lands on `main`. Live scheduled refresh validation for all groups remains open.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -620,5 +622,5 @@ Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dis
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
 - Scheduled refresh workflow timing should be validated with live runs on the next market day. The workflow uses UTC cron entries with Pacific/Eastern comments; daylight-saving behavior should be reviewed after observing several weeks of runs.
-- Treasury Securities Net Issuance now shows a visible `Today` marker, supports shareable hash links for grouping, checked security types, optional SP500 overlay state, x/y axis ranges, and optional SP500 right-axis ranges. The remaining Treasury securities workflow gaps are scheduled auctions refresh timing and a daily SP500 refresh decision.
+- Treasury Securities Net Issuance now shows a visible `Today` marker, supports shareable hash links for grouping, checked security types, optional SP500 overlay state, x/y axis ranges, and optional SP500 right-axis ranges. The remaining Treasury securities workflow gap is validating the new auctions and daily SP500 scheduled refresh groups.
 - The FRED `SP500` artifact includes a rights note because the FRED page identifies third-party copyright/licensing caveats. Revisit that note before any commercial or paywalled redistribution path.

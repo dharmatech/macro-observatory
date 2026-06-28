@@ -1,6 +1,6 @@
 # Scheduled Refresh Policy
 
-Status: implemented; manual dispatch validated; pending live schedule validation
+Status: implemented; pending validation for Treasury auctions and daily SP500 refresh groups
 
 This design note defines the initial scheduled data-refresh policy for Macro Observatory on GitHub Actions.
 
@@ -50,7 +50,7 @@ Treasury auctions query:
 
 The TGA Explorer source script, `deposits_withdrawals_operating_cash.sh`, has no cron comment, but it is Treasury Daily Treasury Statement data and should be refreshed with the other Treasury Daily Treasury Statement source.
 
-Only the first three groups are in scope for current pages. Auctions is noted for later Treasury securities pages.
+The first three groups were the initial implementation. Treasury auctions and daily SP500 refresh are now in scope because the Treasury Securities Net Issuance page and its SP500 overlay are user-facing.
 
 ## Initial Refresh Groups
 
@@ -60,7 +60,9 @@ The scheduled workflow should support these refresh groups.
 | --- | --- | --- | --- | --- | --- |
 | `rrp_daily` | `nyfed_rrp` | `35 18 * * 1-5` | 11:35 AM PDT / 10:35 AM PST | 2:35 PM EDT / 1:35 PM EST | Fed Net Liquidity |
 | `treasury_daily` | `treasury_dts_operating_cash_balance`, `treasury_dts_deposits_withdrawals_operating_cash` | `25 21 * * 1-5` | 2:25 PM PDT / 1:25 PM PST | 5:25 PM EDT / 4:25 PM EST | Fed Net Liquidity and TGA Explorer |
-| `fred_weekly` | `fred_walcl`, `fred_resppllopnww`, `fred_sp500` | `55 21 * * 4` | 2:55 PM PDT / 1:55 PM PST | 5:55 PM EDT / 4:55 PM EST | Fed Net Liquidity |
+| `treasury_auctions_daily` | `treasury_od_auctions_query` | `10 22 * * 1-5` | 3:10 PM PDT / 2:10 PM PST | 6:10 PM EDT / 5:10 PM EST | Treasury Securities Net Issuance |
+| `fred_market_daily` | `fred_sp500` | `25 22 * * 1-5` | 3:25 PM PDT / 2:25 PM PST | 6:25 PM EDT / 5:25 PM EST | Treasury Securities SP500 overlay |
+| `fred_weekly` | `fred_walcl`, `fred_resppllopnww` | `55 21 * * 4` | 2:55 PM PDT / 1:55 PM PST | 5:55 PM EDT / 4:55 PM EST | Fed Net Liquidity |
 
 These UTC times are intentionally conservative. They are later than the legacy local-time comments during daylight saving time, but they avoid being too early during standard time.
 
@@ -76,7 +78,7 @@ Scheduled refresh is implemented as a separate workflow:
 
 The workflow has:
 
-- the three schedule entries above,
+- the five schedule entries above,
 - comments next to each cron entry showing UTC, Pacific, and Eastern time,
 - a `workflow_dispatch` input for manually running one refresh group,
 - the same Pages deployment permissions as the existing Pages workflow,
@@ -92,6 +94,10 @@ on:
     - cron: "35 18 * * 1-5"
     # Treasury DTS daily: 21:25 UTC = 2:25 PM PDT / 1:25 PM PST = 5:25 PM EDT / 4:25 PM EST.
     - cron: "25 21 * * 1-5"
+    # Treasury auctions daily: 22:10 UTC = 3:10 PM PDT / 2:10 PM PST = 6:10 PM EDT / 5:10 PM EST.
+    - cron: "10 22 * * 1-5"
+    # FRED market daily: 22:25 UTC = 3:25 PM PDT / 2:25 PM PST = 6:25 PM EDT / 5:25 PM EST.
+    - cron: "25 22 * * 1-5"
     # FRED weekly: 21:55 UTC Thursday = 2:55 PM PDT / 1:55 PM PST = 5:55 PM EDT / 4:55 PM EST.
     - cron: "55 21 * * 4"
   workflow_dispatch:
@@ -101,6 +107,8 @@ on:
         options:
           - rrp_daily
           - treasury_daily
+          - treasury_auctions_daily
+          - fred_market_daily
           - fred_weekly
 ```
 
@@ -115,7 +123,9 @@ Command shape:
 ```powershell
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
-uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --source-dataset fred_sp500 --require-fred-api-key
+uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
+uv run macro-observatory build-site --source-dataset fred_sp500 --require-fred-api-key
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```
 
 Policy:
@@ -146,7 +156,7 @@ Saving a new cache snapshot after every successful scheduled refresh is acceptab
 
 ## Secrets
 
-`fred_weekly` requires `FRED_API_KEY` and should fail if it is not configured.
+`fred_weekly` and `fred_market_daily` require `FRED_API_KEY` and should fail if it is not configured.
 
 The other current refresh groups do not need API keys. The workflow can still pass `FRED_API_KEY` as an environment variable to all refresh groups, but the explicit secret validation should only be required for `fred_weekly` or for any future group that needs a secret.
 
@@ -181,8 +191,8 @@ A failed scheduled run should fail loudly before source APIs are called if the c
 
 The targeted `build-site --source-dataset ...` checkpoint is implemented and locally validated with the `nyfed_rrp` source dataset.
 
-The scheduled workflow implementation checkpoint adds `scheduled-refresh.yml` with the three initial refresh groups and cache-miss guardrails. The `fred_weekly` group now also includes `fred_sp500` as conservative cache maintenance for the future Treasury Securities market-context overlay; revisit daily post-close refresh timing when that overlay becomes user-facing.
+The scheduled workflow implementation checkpoint first added `scheduled-refresh.yml` with the three initial refresh groups and cache-miss guardrails. The Treasury Securities checkpoint adds `treasury_auctions_daily` for `treasury_od_auctions_query`, adds `fred_market_daily` for `fred_sp500`, and removes `fred_sp500` from `fred_weekly` so Thursday does not update the same source twice.
 
-Manual dispatch validation completed on June 28, 2026. Run `28318271888` dispatched `rrp_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28316049169`, selected `nyfed_rrp`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 9 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28318271888`, deployed successfully, and returned HTTP 200 for the public root page, both current dashboard pages, and sampled data artifacts.
+Manual dispatch validation completed on June 28, 2026 for the first scheduled group. Run `28318271888` dispatched `rrp_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28316049169`, selected `nyfed_rrp`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 9 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28318271888`, deployed successfully, and returned HTTP 200 for the public root page, both current dashboard pages, and sampled data artifacts.
 
-The next validation checkpoint is to watch the first live Monday RRP and Treasury scheduled runs. Validation should confirm that schedule-triggered runs behave like the manual dispatch: restore an existing cache, run targeted source updates, save a new cache snapshot, deploy the site, and never cold-build from source APIs.
+The next validation checkpoint is to manually dispatch `treasury_auctions_daily` and `fred_market_daily` after the workflow update lands on `main`, then watch the first live weekday runs. Validation should confirm that each group restores an existing cache, runs targeted source updates, saves a new cache snapshot, deploys the site, and never cold-builds from source APIs.
