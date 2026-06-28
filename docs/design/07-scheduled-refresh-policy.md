@@ -1,6 +1,6 @@
 # Scheduled Refresh Policy
 
-Status: partially implemented
+Status: implemented, pending live schedule validation
 
 This design note defines the initial scheduled data-refresh policy for Macro Observatory on GitHub Actions.
 
@@ -68,13 +68,13 @@ They also avoid minute `0`, which reduces exposure to GitHub Actions high-load b
 
 ## Workflow Shape
 
-Implement scheduled refresh as a separate workflow first:
+Scheduled refresh is implemented as a separate workflow:
 
 ```text
 .github/workflows/scheduled-refresh.yml
 ```
 
-The workflow should have:
+The workflow has:
 
 - the three schedule entries above,
 - comments next to each cron entry showing UTC, Pacific, and Eastern time,
@@ -154,12 +154,9 @@ The other current refresh groups do not need API keys. The workflow can still pa
 
 Scheduled refresh, manual source-update deployment, and push cache-only deployment all publish the same Pages site.
 
-The scheduled refresh workflow should use the same broad concurrency group as the Pages deployment workflow, but scheduled source-update jobs should not be casually canceled by a push deploy. Before implementation, review the current `cancel-in-progress` behavior and choose one of these policies:
+The initial implemented policy uses the shared `github-pages` concurrency group with `cancel-in-progress: false` in both `.github/workflows/pages.yml` and `.github/workflows/scheduled-refresh.yml`.
 
-- queue refresh and deploy jobs behind each other, or
-- allow push deploys to cancel older push deploys but not scheduled source-update runs.
-
-The conservative initial policy is to avoid canceling a scheduled source-update run once it has started.
+That means refresh and deploy jobs queue behind each other rather than canceling an in-progress source update. This is conservative and slightly slower during overlapping runs, but it avoids interrupting a scheduled refresh after it has restored cache and before it has saved the next cache snapshot.
 
 ## Observability
 
@@ -180,12 +177,10 @@ A successful scheduled run should make it obvious that the workflow did an incre
 
 A failed scheduled run should fail loudly before source APIs are called if the cache is missing or incomplete.
 
-## Next Implementation Checkpoint
+## Next Validation Checkpoint
 
 The targeted `build-site --source-dataset ...` checkpoint is implemented and locally validated with the `nyfed_rrp` source dataset.
 
-The next implementation checkpoint should be:
+The scheduled workflow implementation checkpoint adds `scheduled-refresh.yml` with the three initial refresh groups and cache-miss guardrails.
 
-1. add `scheduled-refresh.yml` with the three initial refresh groups,
-2. manually dispatch each refresh group once to validate behavior,
-3. document the validation results.
+The next validation checkpoint is to manually dispatch at least one refresh group after the workflow is pushed to the default branch, then watch the first live Monday RRP and Treasury scheduled runs. Validation should confirm that scheduled runs restore an existing cache, run targeted source updates, save a new cache snapshot, deploy the site, and never cold-build from source APIs.

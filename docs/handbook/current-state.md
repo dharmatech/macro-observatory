@@ -56,8 +56,9 @@ Current implementation priorities:
 - GitHub Actions data-cache persistence for `data/cache/` with explicit cold-build guardrail.
 - Push-triggered cache-only GitHub Pages deployment via `build-site --from-cache`.
 - Targeted source-update support via repeated `build-site --source-dataset ...` flags.
+- Scheduled data refresh workflow at `.github/workflows/scheduled-refresh.yml`.
 
-The TGA Explorer page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, push-triggered cache-only deployment checkpoint, and targeted source-update checkpoint are complete. Scheduled data refresh workflow implementation is still separate future work.
+The TGA Explorer page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, push-triggered cache-only deployment checkpoint, targeted source-update checkpoint, and scheduled refresh workflow implementation checkpoint are complete. Live schedule validation remains next.
 
 ## Implemented Architecture
 
@@ -88,7 +89,7 @@ Current static-site files:
 - `site/assets/js/fed-net-liquidity.js`
 - `site/assets/js/tga-explorer.js`
 
-Generated data under `data/cache/` and `site/data/` is ignored by git. Manual GitHub Pages deployment restores `data/cache/` from GitHub Actions cache, refreshes source data from APIs, regenerates derived and browser artifacts, saves a new data-cache snapshot after a successful build, and uploads `site/` as the Pages artifact. Push-triggered deployment restores the same cache, runs `build-site --from-cache`, uploads `site/`, and does not call source APIs or save a new data-cache snapshot.
+Generated data under `data/cache/` and `site/data/` is ignored by git. Manual GitHub Pages deployment restores `data/cache/` from GitHub Actions cache, refreshes source data from APIs, regenerates derived and browser artifacts, saves a new data-cache snapshot after a successful build, and uploads `site/` as the Pages artifact. Push-triggered deployment restores the same cache, runs `build-site --from-cache`, uploads `site/`, and does not call source APIs or save a new data-cache snapshot. Scheduled refresh deployment restores the same cache, refuses cache misses, runs targeted source updates by refresh group, saves a new cache snapshot after success, and deploys `site/`.
 
 Shared static behavior:
 
@@ -379,7 +380,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is implementing `.github/workflows/scheduled-refresh.yml`, following `docs/design/07-scheduled-refresh-policy.md`.
+The next likely checkpoint is validating `.github/workflows/scheduled-refresh.yml` with a manual dispatch and then watching the first live Monday RRP and Treasury scheduled runs.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -391,7 +392,7 @@ Targeted source-update mode is implemented. `build-site --source-dataset ...` va
 
 Local targeted validation completed on June 28, 2026. `uv run macro-observatory build-site --source-dataset nyfed_rrp` ran successfully, reported `source update mode: targeted`, selected `nyfed_rrp`, updated `1` source dataset, rebuilt `3` derived datasets, and published `2` browser artifacts.
 
-Manual runs remain the only current GitHub Actions path that refreshes source APIs and saves a new data-cache snapshot. Scheduled refresh workflows are designed but not implemented yet.
+Scheduled refresh workflow implementation is now present. Manual dispatch validation and live Monday schedule validation are the next checks.
 
 
 ## Known Open Questions
@@ -402,4 +403,4 @@ Manual runs remain the only current GitHub Actions path that refreshes source AP
 - The TGA Explorer browser artifact is much larger than Fed Net Liquidity. The page now reports fetch, JSON parse, filtering, trace construction, and Plotly render timing, but those numbers still need browser testing on real machines.
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
-- Scheduled refresh workflows are designed in `docs/design/07-scheduled-refresh-policy.md` but not implemented yet.
+- Scheduled refresh workflow timing should be validated with live runs on the next market day. The workflow uses UTC cron entries with Pacific/Eastern comments; daylight-saving behavior should be reviewed after observing several weeks of runs.

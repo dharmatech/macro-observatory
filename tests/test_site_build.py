@@ -1,10 +1,12 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
 import pytest
 
 from macro_observatory import site_build
+from macro_observatory.models import UpdateResult
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,20 @@ def _fake_source_spec(data_dir: Path, dataset_id: str) -> FakeSpec:
     )
 
 
+def _fake_update_result(data_dir: Path, dataset_id: str) -> UpdateResult:
+    return UpdateResult(
+        dataset_id=dataset_id,
+        rows_before=0,
+        rows_fetched=0,
+        rows_after=0,
+        min_date=None,
+        max_date=None,
+        updated_at=datetime(2026, 1, 1, tzinfo=UTC),
+        cache_path=data_dir / "cache" / "sources" / f"{dataset_id}.parquet",
+        metadata_path=data_dir / "cache" / "metadata" / f"{dataset_id}.json",
+    )
+
+
 def test_build_static_site_runs_current_pipeline_in_order(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -43,9 +59,9 @@ def test_build_static_site_runs_current_pipeline_in_order(
         assert data_dir == tmp_path / "data"
         return dataset_id
 
-    def fake_update_dataset(spec: str) -> str:
+    def fake_update_dataset(spec: str) -> UpdateResult:
         calls.append(("update", spec))
-        return spec
+        return _fake_update_result(tmp_path / "data", spec)
 
     def fake_build_derived_dataset(dataset_id: str, *, data_dir: Path) -> str:
         calls.append(("build-derived", dataset_id))
@@ -157,9 +173,9 @@ def test_build_static_site_targeted_updates_only_selected_sources(
         assert data_dir_arg == data_dir
         return _fake_source_spec(data_dir, dataset_id)
 
-    def fake_update_dataset(spec: FakeSpec) -> str:
+    def fake_update_dataset(spec: FakeSpec) -> UpdateResult:
         calls.append(("update", spec.id))
-        return spec.id
+        return _fake_update_result(data_dir, spec.id)
 
     def fake_build_derived_dataset(dataset_id: str, *, data_dir: Path) -> str:
         calls.append(("build-derived", dataset_id))
@@ -196,7 +212,7 @@ def test_build_static_site_targeted_updates_only_selected_sources(
     assert calls == expected_calls
     assert result.source_update_mode == "targeted"
     assert result.source_dataset_ids == expected_selected
-    assert result.source_results == expected_selected
+    assert tuple(update.dataset_id for update in result.source_results) == expected_selected
     assert result.nojekyll_path == tmp_path / "site" / ".nojekyll"
     assert result.nojekyll_path.exists()
 

@@ -571,6 +571,56 @@ uv run macro-observatory storage-report
 uv run macro-observatory serve-site
 ```
 
+## Scheduled GitHub Pages Refresh
+
+Scheduled source-data refreshes are implemented with:
+
+```text
+.github/workflows/scheduled-refresh.yml
+```
+
+The workflow restores the GitHub Actions `data/cache/` snapshot, refuses to run if no cache is restored, updates only the selected source datasets, rebuilds all current derived datasets and browser artifacts, saves a new immutable cache snapshot, and deploys `site/`.
+
+Current refresh groups:
+
+```text
+rrp_daily       -> nyfed_rrp
+                  35 18 * * 1-5  # 18:35 UTC, 11:35 AM PDT / 10:35 AM PST
+
+treasury_daily  -> treasury_dts_operating_cash_balance
+                  treasury_dts_deposits_withdrawals_operating_cash
+                  25 21 * * 1-5  # 21:25 UTC, 2:25 PM PDT / 1:25 PM PST
+
+fred_weekly     -> fred_walcl
+                  fred_resppllopnww
+                  55 21 * * 4    # 21:55 UTC Thursday, 2:55 PM PDT / 1:55 PM PST
+```
+
+Manual dispatch from GitHub CLI after the workflow exists on `main`:
+
+```powershell
+gh workflow run scheduled-refresh.yml --ref main -f refresh_group=rrp_daily
+gh workflow run scheduled-refresh.yml --ref main -f refresh_group=treasury_daily
+gh workflow run scheduled-refresh.yml --ref main -f refresh_group=fred_weekly
+```
+
+Watch recent scheduled refresh runs:
+
+```powershell
+gh run list --workflow scheduled-refresh.yml --limit 5
+gh run watch <run-id> --exit-status
+```
+
+Equivalent local commands for the three refresh groups:
+
+```powershell
+uv run macro-observatory build-site --source-dataset nyfed_rrp
+uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
+```
+
+The scheduled workflow shares the `github-pages` concurrency group with `.github/workflows/pages.yml` and uses `cancel-in-progress: false`, so push deploys and scheduled source updates queue instead of canceling each other.
+
 ## Storage Report
 Show a concise cross-platform report of known project data files:
 

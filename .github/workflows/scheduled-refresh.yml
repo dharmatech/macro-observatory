@@ -1,0 +1,209 @@
+name: Scheduled Data Refresh
+
+on:
+  schedule:
+    # RRP daily: 18:35 UTC = 11:35 AM PDT / 10:35 AM PST = 2:35 PM EDT / 1:35 PM EST.
+    - cron: "35 18 * * 1-5"
+    # Treasury DTS daily: 21:25 UTC = 2:25 PM PDT / 1:25 PM PST = 5:25 PM EDT / 4:25 PM EST.
+    - cron: "25 21 * * 1-5"
+    # FRED weekly: 21:55 UTC Thursday = 2:55 PM PDT / 1:55 PM PST = 5:55 PM EDT / 4:55 PM EST.
+    - cron: "55 21 * * 4"
+  workflow_dispatch:
+    inputs:
+      refresh_group:
+        description: "Refresh group to run"
+        required: true
+        default: "rrp_daily"
+        type: choice
+        options:
+          - rrp_daily
+          - treasury_daily
+          - fred_weekly
+
+permissions:
+  actions: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Refresh data and build static site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.3.0
+        with:
+          python-version-file: .python-version
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Resolve refresh group
+        run: |
+          case "${{ github.event_name }}" in
+            schedule)
+              case "${{ github.event.schedule }}" in
+                "35 18 * * 1-5")
+                  refresh_group="rrp_daily"
+                  source_datasets="nyfed_rrp"
+                  build_args="--source-dataset nyfed_rrp"
+                  requires_fred_api_key="false"
+                  ;;
+                "25 21 * * 1-5")
+                  refresh_group="treasury_daily"
+                  source_datasets="treasury_dts_operating_cash_balance treasury_dts_deposits_withdrawals_operating_cash"
+                  build_args="--source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash"
+                  requires_fred_api_key="false"
+                  ;;
+                "55 21 * * 4")
+                  refresh_group="fred_weekly"
+                  source_datasets="fred_walcl fred_resppllopnww"
+                  build_args="--source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key"
+                  requires_fred_api_key="true"
+                  ;;
+                *)
+                  echo "::error::Unknown schedule: ${{ github.event.schedule }}"
+                  exit 1
+                  ;;
+              esac
+              ;;
+            workflow_dispatch)
+              case "${{ github.event.inputs.refresh_group }}" in
+                rrp_daily)
+                  refresh_group="rrp_daily"
+                  source_datasets="nyfed_rrp"
+                  build_args="--source-dataset nyfed_rrp"
+                  requires_fred_api_key="false"
+                  ;;
+                treasury_daily)
+                  refresh_group="treasury_daily"
+                  source_datasets="treasury_dts_operating_cash_balance treasury_dts_deposits_withdrawals_operating_cash"
+                  build_args="--source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash"
+                  requires_fred_api_key="false"
+                  ;;
+                fred_weekly)
+                  refresh_group="fred_weekly"
+                  source_datasets="fred_walcl fred_resppllopnww"
+                  build_args="--source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key"
+                  requires_fred_api_key="true"
+                  ;;
+                *)
+                  echo "::error::Unknown refresh group: ${{ github.event.inputs.refresh_group }}"
+                  exit 1
+                  ;;
+              esac
+              ;;
+            *)
+              echo "::error::Unsupported event: ${{ github.event_name }}"
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "REFRESH_GROUP=$refresh_group"
+            echo "SOURCE_DATASETS=$source_datasets"
+            echo "BUILD_ARGS=$build_args"
+            echo "REQUIRES_FRED_API_KEY=$requires_fred_api_key"
+          } >> "$GITHUB_ENV"
+
+          echo "refresh group: $refresh_group"
+          echo "source datasets: $source_datasets"
+          echo "build args: $build_args"
+          echo "requires FRED API key: $requires_fred_api_key"
+
+      - name: Restore data cache
+        id: data-cache-restore
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: data/cache
+          key: macro-observatory-data-cache-v1-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            macro-observatory-data-cache-v1-${{ runner.os }}-
+
+      - name: Report data cache restore
+        run: |
+          echo "EVENT_NAME=${{ github.event_name }}"
+          echo "SCHEDULE=${{ github.event.schedule }}"
+          echo "REFRESH_GROUP=$REFRESH_GROUP"
+          echo "SOURCE_DATASETS=$SOURCE_DATASETS"
+          echo "CACHE_HIT=${{ steps.data-cache-restore.outputs.cache-hit }}"
+          echo "CACHE_PRIMARY_KEY=${{ steps.data-cache-restore.outputs.cache-primary-key }}"
+          echo "CACHE_MATCHED_KEY=${{ steps.data-cache-restore.outputs.cache-matched-key }}"
+          if [ -d data/cache ]; then
+            du -sh data/cache
+          else
+            echo "data/cache is not present before build"
+          fi
+
+      - name: Refuse scheduled cold build
+        if: ${{ steps.data-cache-restore.outputs.cache-hit == '' }}
+        run: |
+          echo "::error::No Actions data cache was restored. Scheduled refreshes never cold-build from source APIs. Run the Pages workflow manually with allow_cold_build=true only for an intentional bootstrap or repair."
+          exit 1
+
+      - name: Validate required secrets
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          if [ "$REQUIRES_FRED_API_KEY" = "true" ] && [ -z "$FRED_API_KEY" ]; then
+            echo "::error::FRED_API_KEY repository secret is required for refresh group $REFRESH_GROUP."
+            exit 1
+          fi
+          echo "secret validation complete for refresh group $REFRESH_GROUP"
+
+      - name: Build site data
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          start=$(date +%s)
+          echo "build-site mode: scheduled-targeted"
+          echo "refresh group: $REFRESH_GROUP"
+          echo "build args: $BUILD_ARGS"
+          uv run macro-observatory build-site $BUILD_ARGS
+          end=$(date +%s)
+          echo "build-site duration: $((end - start)) seconds"
+          echo "data/cache size after build:"
+          du -sh data/cache
+
+      - name: Show storage report
+        run: uv run macro-observatory storage-report
+
+      - name: Save data cache
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: data/cache
+          key: ${{ steps.data-cache-restore.outputs.cache-primary-key }}
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6.0.0
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: site
+
+  deploy:
+    name: Deploy static site
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5.0.0
