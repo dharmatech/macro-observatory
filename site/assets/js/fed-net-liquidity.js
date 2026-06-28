@@ -2,6 +2,8 @@
   "use strict";
 
   const DATA_URL = "../../data/fed-net-liquidity.json";
+  const USD_TRILLION = 1000000000000;
+  const USD_BILLION = 1000000000;
   const METADATA_URL = "../../data/fed-net-liquidity-metadata.json";
   const SERIES_ORDER = ["fed_net_liquidity", "walcl", "rrp", "tga", "rem"];
   const SERIES_COLORS = {
@@ -170,6 +172,18 @@
       });
   }
 
+  function tableUsdTrillions(value) {
+    return window.MacroObservatory.formatUsdFixedUnit(value, USD_TRILLION, "T", 2);
+  }
+
+  function tableUsdBillions(value) {
+    return window.MacroObservatory.formatUsdFixedUnit(value, USD_BILLION, "B", 1);
+  }
+
+  function tableUsdBillionsDelta(value) {
+    return window.MacroObservatory.formatUsdDeltaFixedUnit(value, USD_BILLION, "B", 1);
+  }
+
   function renderRecentTable(records) {
     const tbody = window.MacroObservatory.getElement("recent-table-body");
     window.MacroObservatory.clearChildren(tbody);
@@ -183,32 +197,32 @@
         window.MacroObservatory.appendTextCell(tableRow, row.date, "");
         window.MacroObservatory.appendTextCell(
           tableRow,
-          window.MacroObservatory.formatUsdCompact(row.fed_net_liquidity),
+          tableUsdTrillions(row.fed_net_liquidity),
           "number-cell"
         );
         window.MacroObservatory.appendTextCell(
           tableRow,
-          window.MacroObservatory.formatUsdDelta(row.fed_net_liquidity_diff),
+          tableUsdBillionsDelta(row.fed_net_liquidity_diff),
           `number-cell ${window.MacroObservatory.valueToneClass(row.fed_net_liquidity_diff)}`
         );
         window.MacroObservatory.appendTextCell(
           tableRow,
-          window.MacroObservatory.formatUsdCompact(row.walcl),
+          tableUsdTrillions(row.walcl),
           "number-cell"
         );
         window.MacroObservatory.appendTextCell(
           tableRow,
-          window.MacroObservatory.formatUsdCompact(row.rrp),
+          tableUsdBillions(row.rrp),
           "number-cell"
         );
         window.MacroObservatory.appendTextCell(
           tableRow,
-          window.MacroObservatory.formatUsdCompact(row.tga),
+          tableUsdBillions(row.tga),
           "number-cell"
         );
         window.MacroObservatory.appendTextCell(
           tableRow,
-          window.MacroObservatory.formatUsdCompact(row.rem),
+          tableUsdBillions(row.rem),
           "number-cell"
         );
         tbody.appendChild(tableRow);

@@ -464,6 +464,8 @@ site/assets/js/fed-net-liquidity.js
 
 The root page is a minimal dashboard directory. The Fed Net Liquidity page loads the generated JSON and metadata artifacts with relative paths, renders a Plotly time-series chart, displays summary metrics, shows source metadata, and includes a recent-observations table.
 
+The recent-observations table uses fixed per-column units for scanability: Fed Net Liquidity and WALCL in trillions, and change, RRP, TGA, and REM in billions.
+
 Local preview command:
 
 ```powershell

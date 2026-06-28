@@ -372,6 +372,7 @@ dd {
 
 .number-cell {
   font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .positive {

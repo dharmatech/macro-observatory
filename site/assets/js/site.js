@@ -76,6 +76,30 @@
     return `${value < 0 ? "-" : ""}$${formatInteger(abs)}`;
   }
 
+  function formatUsdFixedUnit(value, divisor, suffix, fractionDigits) {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return "n/a";
+    }
+    const abs = Math.abs(value);
+    const formatted = (abs / divisor).toLocaleString("en-US", {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits
+    });
+    return `${value < 0 ? "-" : ""}$${formatted}${suffix}`;
+  }
+
+  function formatUsdDeltaFixedUnit(value, divisor, suffix, fractionDigits) {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return "n/a";
+    }
+    if (value === 0) {
+      return formatUsdFixedUnit(value, divisor, suffix, fractionDigits);
+    }
+    const prefix = value > 0 ? "+" : "-";
+    const formatted = formatUsdFixedUnit(Math.abs(value), divisor, suffix, fractionDigits);
+    return `${prefix}${formatted}`;
+  }
+
   function formatUsdDelta(value) {
     if (value === null || value === undefined || Number.isNaN(value)) {
       return "n/a";
@@ -134,6 +158,8 @@
     formatInteger,
     formatIsoDateTime,
     formatUsdCompact,
+    formatUsdDeltaFixedUnit,
+    formatUsdFixedUnit,
     formatUsdDelta,
     getElement,
     hideLoading,
