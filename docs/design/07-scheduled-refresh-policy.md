@@ -1,6 +1,6 @@
 # Scheduled Refresh Policy
 
-Status: implemented; pending validation for Treasury auctions and daily SP500 refresh groups
+Status: implemented; manual dispatch validated; pending live schedule validation
 
 This design note defines the initial scheduled data-refresh policy for Macro Observatory on GitHub Actions.
 
@@ -195,4 +195,10 @@ The scheduled workflow implementation checkpoint first added `scheduled-refresh.
 
 Manual dispatch validation completed on June 28, 2026 for the first scheduled group. Run `28318271888` dispatched `rrp_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28316049169`, selected `nyfed_rrp`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 9 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28318271888`, deployed successfully, and returned HTTP 200 for the public root page, both current dashboard pages, and sampled data artifacts.
 
-The next validation checkpoint is to manually dispatch `treasury_auctions_daily` and `fred_market_daily` after the workflow update lands on `main`, then watch the first live weekday runs. Validation should confirm that each group restores an existing cache, runs targeted source updates, saves a new cache snapshot, deploys the site, and never cold-builds from source APIs.
+Manual dispatch validation for the added Treasury Securities groups completed on June 28, 2026.
+
+Run `28338729539` dispatched `treasury_auctions_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28333510067`, selected `treasury_od_auctions_query`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 8 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28338729539`, deployed successfully, and returned HTTP 200 for the public root page, Treasury Securities page, SP500 artifact, and Treasury Securities artifact after the validation sequence.
+
+Run `28338763380` dispatched `fred_market_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28338729539`, validated the required `FRED_API_KEY` secret, selected `fred_sp500`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 8 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28338763380`, deployed successfully, and returned HTTP 200 for the public root page, Treasury Securities page, SP500 artifact, and Treasury Securities artifact after the validation sequence.
+
+The next validation checkpoint is to watch the first live weekday runs for all scheduled groups. Validation should confirm that each group restores an existing cache, runs targeted source updates, saves a new cache snapshot, deploys the site, and never cold-builds from source APIs.

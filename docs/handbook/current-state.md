@@ -66,7 +66,7 @@ Current implementation priorities:
 - Targeted source-update support via repeated `build-site --source-dataset ...` flags.
 - Scheduled data refresh workflow at `.github/workflows/scheduled-refresh.yml`.
 
-The TGA Explorer page UI checkpoint, Treasury Securities Net Issuance page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, push-triggered cache-only deployment checkpoint, targeted source-update checkpoint, and scheduled refresh workflow implementation checkpoint are complete. Treasury auctions and daily SP500 scheduled refresh groups are being added next; live schedule validation remains open.
+The TGA Explorer page UI checkpoint, Treasury Securities Net Issuance page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, push-triggered cache-only deployment checkpoint, targeted source-update checkpoint, scheduled refresh workflow implementation checkpoint, and Treasury auctions plus daily SP500 scheduled refresh group checkpoint are complete. Live schedule validation remains open.
 
 ## Implemented Architecture
 
@@ -337,7 +337,7 @@ rows fetched: 21
 rows after: 11,022
 ```
 
-This source dataset is wired into aggregate `build-site` and GitHub Pages deployment so the Treasury Securities Net Issuance page can publish from cache. It is moving into the scheduled `treasury_auctions_daily` refresh group.
+This source dataset is wired into aggregate `build-site`, GitHub Pages deployment, and the scheduled `treasury_auctions_daily` refresh group so the Treasury Securities Net Issuance page can publish from cache.
 
 ### Treasury Securities Net Issuance Derived Dataset
 
@@ -474,7 +474,7 @@ metadata JSON: 1.3 KB
 
 Published metadata records `market_context_role: daily_price_overlay`, the FRED source URL, and a rights note because the FRED `SP500` page identifies third-party copyright/licensing caveats.
 
-Refresh cadence note: `fred_sp500` is moving from the existing `fred_weekly` refresh group into a separate `fred_market_daily` refresh group because the overlay is now user-facing.
+Refresh cadence note: `fred_sp500` now uses the separate `fred_market_daily` refresh group because the overlay is user-facing. It is no longer included in `fred_weekly`.
 ### TGA Explorer Derived Dataset
 
 Derived from:
@@ -594,7 +594,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is validating the newly added `treasury_auctions_daily` and `fred_market_daily` scheduled refresh groups after the workflow update lands on `main`. Live scheduled refresh validation for all groups remains open.
+The next likely checkpoint is watching the first live weekday scheduled runs for the new `treasury_auctions_daily` and `fred_market_daily` groups, along with the already-existing groups. Manual dispatch validation for the new groups is complete.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -610,7 +610,9 @@ Manual scheduled refresh validation completed on June 28, 2026. Workflow run `28
 
 SP500 Actions cache refresh completed on June 28, 2026. The first push run for commit `50bbdd7`, run `28333482663`, failed intentionally in cache-only mode because the restored cache did not yet contain `data/cache/sources/fred_sp500.parquet` or `data/cache/metadata/fred_sp500.json`. Manual Pages run `28333510067` then restored cache key `macro-observatory-data-cache-v1-Linux-28328939575`, ran a full source update with `allow_cold_build=false`, selected `7` source datasets including `fred_sp500`, built in 12 seconds, published `4` browser artifacts, saved new cache key `macro-observatory-data-cache-v1-Linux-28333510067`, deployed successfully, and returned HTTP 200 for the public root page, Treasury Securities page, `sp500.json`, and `sp500-metadata.json`.
 
-Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dispatch validation completed successfully. Live Monday schedule validation is the next check.
+Treasury auctions and daily SP500 scheduled refresh validation completed on June 28, 2026. Run `28338729539` dispatched `treasury_auctions_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28333510067`, selected `treasury_od_auctions_query`, updated `1` source dataset, completed `build-site` in 8 seconds, saved cache key `macro-observatory-data-cache-v1-Linux-28338729539`, and deployed successfully. Run `28338763380` dispatched `fred_market_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28338729539`, validated `FRED_API_KEY`, selected `fred_sp500`, updated `1` source dataset, completed `build-site` in 8 seconds, saved cache key `macro-observatory-data-cache-v1-Linux-28338763380`, and deployed successfully. Public smoke checks returned HTTP 200 for the root page, Treasury Securities page, SP500 artifact, and Treasury Securities artifact.
+
+Scheduled refresh workflow implementation is now present. Manual `rrp_daily`, `treasury_auctions_daily`, and `fred_market_daily` dispatch validation completed successfully. Live weekday schedule validation is the next check.
 
 
 ## Known Open Questions
@@ -622,5 +624,5 @@ Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dis
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
 - Scheduled refresh workflow timing should be validated with live runs on the next market day. The workflow uses UTC cron entries with Pacific/Eastern comments; daylight-saving behavior should be reviewed after observing several weeks of runs.
-- Treasury Securities Net Issuance now shows a visible `Today` marker, supports shareable hash links for grouping, checked security types, optional SP500 overlay state, x/y axis ranges, and optional SP500 right-axis ranges. The remaining Treasury securities workflow gap is validating the new auctions and daily SP500 scheduled refresh groups.
+- Treasury Securities Net Issuance now shows a visible `Today` marker, supports shareable hash links for grouping, checked security types, optional SP500 overlay state, x/y axis ranges, and optional SP500 right-axis ranges. The remaining Treasury securities workflow gap is observing the first live scheduled runs for the auctions and daily SP500 refresh groups.
 - The FRED `SP500` artifact includes a rights note because the FRED page identifies third-party copyright/licensing caveats. Revisit that note before any commercial or paywalled redistribution path.
