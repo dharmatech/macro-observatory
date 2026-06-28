@@ -261,6 +261,7 @@
       frequency: element("frequency-select"),
       reset: element("reset-button"),
       copyLink: element("treasury-securities-copy-link"),
+      cumulative: element("cumulative-toggle"),
       sp500Overlay: element("sp500-overlay-toggle"),
       securityTypeInputs: Array.from(
         element("security-type-list").querySelectorAll("input[type='checkbox']")
@@ -286,6 +287,7 @@
     ui.securityTypeInputs.forEach((input) => {
       input.checked = true;
     });
+    ui.cumulative.checked = false;
     ui.sp500Overlay.checked = false;
   }
 
@@ -328,6 +330,7 @@
         frequency: validAxisText(params.get("freq")),
         rawTypes: null,
         hasTypes: params.has("types"),
+        cumulative: params.get("cum") === "1",
         showSp500: params.get("sp500") === "1",
         axisRanges: {}
       };
@@ -380,6 +383,10 @@
           input.checked = validTypeSet.has(input.dataset.securityType);
         });
       }
+    }
+
+    if (state.cumulative) {
+      ui.cumulative.checked = true;
     }
 
     if (state.showSp500 && sp500Available()) {
@@ -438,6 +445,7 @@
       minDate,
       maxDate,
       selectedTypeList,
+      cumulative: ui.cumulative.checked,
       showSp500: ui.sp500Overlay.checked && sp500Available()
     };
   }
@@ -491,10 +499,12 @@
     setText("metric-chart-points", window.MacroObservatory.formatInteger(pointCount));
     setText("metric-frequency", formatFrequency(filtered.frequency));
     setText("control-point-count", `${window.MacroObservatory.formatInteger(pointCount)} points`);
+    const cumulativeLabel = filtered.cumulative ? ", cumulative" : "";
     const overlayLabel = filtered.showSp500 ? ", S&P 500 overlay" : "";
+    setText("chart-heading", filtered.cumulative ? "Cumulative Net Issuance" : "Net Issuance");
     setText(
       "filtered-range-label",
-      `${formatFrequency(filtered.frequency)}, ${selectedTypeLabel(filtered.selectedTypeList)}, ${window.MacroObservatory.formatInteger(pointCount)} non-zero points, ${window.MacroObservatory.formatDate(labelMin)} to ${window.MacroObservatory.formatDate(labelMax)}${overlayLabel}`
+      `${formatFrequency(filtered.frequency)}${cumulativeLabel}, ${selectedTypeLabel(filtered.selectedTypeList)}, ${window.MacroObservatory.formatInteger(pointCount)} non-zero points, ${window.MacroObservatory.formatDate(labelMin)} to ${window.MacroObservatory.formatDate(labelMax)}${overlayLabel}`
     );
     renderSp500Status();
   }
@@ -526,19 +536,32 @@
       const securityType = String(rowValue(row, "security_type") || "Unknown");
       let group = grouped.get(securityType);
       if (!group) {
-        group = { x: [], y: [], customdata: [] };
+        group = [];
         grouped.set(securityType, group);
       }
-      group.x.push(rowValue(row, "date"));
-      group.y.push(toBillions(numericRowValue(row, "net_issuance")));
-      group.customdata.push([
-        toBillions(numericRowValue(row, "issued")),
-        toBillions(numericRowValue(row, "maturing"))
-      ]);
+      group.push(row);
     });
 
     const traces = orderedSecurityTypes(grouped.keys()).map((securityType) => {
-      const group = grouped.get(securityType);
+      const groupRows = grouped.get(securityType).slice().sort((left, right) => {
+        return String(rowValue(left, "date")).localeCompare(String(rowValue(right, "date")));
+      });
+      const group = { x: [], y: [], customdata: [] };
+      let cumulativeNetIssuance = 0;
+      groupRows.forEach((row) => {
+        const netIssuance = numericRowValue(row, "net_issuance");
+        if (netIssuance === null) {
+          return;
+        }
+        cumulativeNetIssuance += netIssuance;
+        group.x.push(rowValue(row, "date"));
+        group.y.push(toBillions(filtered.cumulative ? cumulativeNetIssuance : netIssuance));
+        group.customdata.push([
+          toBillions(numericRowValue(row, "issued")),
+          toBillions(numericRowValue(row, "maturing")),
+          toBillions(netIssuance)
+        ]);
+      });
       return {
         x: group.x,
         y: group.y,
@@ -553,13 +576,22 @@
             width: 0.4
           }
         },
-        hovertemplate: [
-          "%{fullData.name}",
-          "%{x}",
-          "Net issuance: %{y:$,.1f}B",
-          "Issued: %{customdata[0]:$,.1f}B",
-          "Maturing: %{customdata[1]:$,.1f}B<extra></extra>"
-        ].join("<br>")
+        hovertemplate: filtered.cumulative
+          ? [
+            "%{fullData.name}",
+            "%{x}",
+            "Cumulative net issuance: %{y:$,.1f}B",
+            "Period net issuance: %{customdata[2]:$,.1f}B",
+            "Issued: %{customdata[0]:$,.1f}B",
+            "Maturing: %{customdata[1]:$,.1f}B<extra></extra>"
+          ].join("<br>")
+          : [
+            "%{fullData.name}",
+            "%{x}",
+            "Net issuance: %{y:$,.1f}B",
+            "Issued: %{customdata[0]:$,.1f}B",
+            "Maturing: %{customdata[1]:$,.1f}B<extra></extra>"
+          ].join("<br>")
       };
     });
 
@@ -654,7 +686,7 @@
         }
       },
       yaxis: {
-        title: "Net issuance, USD billions",
+        title: filtered.cumulative ? "Cumulative net issuance, USD billions" : "Net issuance, USD billions",
         showgrid: true,
         gridcolor: "#e7ebf1",
         zerolinecolor: "#aab4c2",
@@ -825,6 +857,9 @@
     params.set("v", SHARE_STATE_VERSION);
     params.set("freq", ui.frequency.value);
     params.set("types", selectedSecurityTypeList(ui).join(","));
+    if (ui.cumulative.checked) {
+      params.set("cum", "1");
+    }
     if (ui.sp500Overlay.checked && sp500Available()) {
       params.set("sp500", "1");
     }
@@ -922,6 +957,7 @@
     }
     renderSp500Status();
     ui.frequency.addEventListener("change", scheduleApplyFilters);
+    ui.cumulative.addEventListener("change", scheduleApplyFilters);
     ui.securityTypeInputs.forEach((input) => {
       input.addEventListener("change", scheduleApplyFilters);
     });
