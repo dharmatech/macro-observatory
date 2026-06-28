@@ -49,6 +49,7 @@ Current implementation priorities:
 - Cross-platform storage diagnostics via `storage-report`.
 - Static site shell and Fed Net Liquidity Plotly page under `site/`.
 - Treasury Fiscal Data Deposits and Withdrawals source dataset: `treasury_dts_deposits_withdrawals_operating_cash`.
+- Treasury Fiscal Data Auctions Query source dataset: `treasury_od_auctions_query`.
 - Derived TGA Explorer dataset: `treasury_dts_deposits_withdrawals_operating_cash_explorer`.
 - TGA Explorer published browser artifacts under `site/data/`.
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
@@ -147,6 +148,7 @@ uv run macro-observatory update fred_resppllopnww
 uv run macro-observatory update nyfed_rrp
 uv run macro-observatory update treasury_dts_operating_cash_balance
 uv run macro-observatory update treasury_dts_deposits_withdrawals_operating_cash
+uv run macro-observatory update treasury_od_auctions_query
 ```
 
 Build derived datasets:
@@ -169,7 +171,9 @@ Inspect data and storage:
 ```powershell
 uv run macro-observatory storage-report
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash
+uv run macro-observatory info treasury_od_auctions_query
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash_explorer
+uv run macro-observatory show treasury_od_auctions_query --rows 10
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 10
 ```
 
@@ -270,6 +274,53 @@ rows: 472,569
 date range: 2005-10-03 to 2026-06-25
 ```
 
+### Treasury Auctions Query
+
+Source endpoint:
+
+```text
+https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query
+```
+
+Current dataset ID:
+
+```text
+treasury_od_auctions_query
+```
+
+Current cache paths:
+
+```text
+data/cache/sources/treasury_od_auctions_query.parquet
+data/cache/metadata/treasury_od_auctions_query.json
+```
+
+The source cache preserves the full 113-column endpoint for Pandas inspection and future Treasury securities pages. The checkpoint uses `record_date` for incremental updates, sorts by `record_date,cusip,auction_date,issue_date,maturity_date`, and uses that same tuple as the primary key. The current implementation parses `total_accepted` as U.S. dollars; additional numeric fields can be added when a derived page needs them.
+
+Latest local metadata at this checkpoint:
+
+```text
+rows: 11,022
+columns: 113
+date range: 1979-11-15 to 2026-07-02
+issue date range: 1979-11-15 to 2026-07-02
+maturity date range: 1980-04-03 to 2056-05-15
+duplicate primary keys: 0
+total_accepted null rows: 4
+source parquet: 1,958.3 KB
+metadata JSON: 18.5 KB
+```
+
+An immediate second update fetched the 14-day overlap window and merged back to the same row count:
+
+```text
+rows before: 11,022
+rows fetched: 21
+rows after: 11,022
+```
+
+This source dataset is intentionally not wired into aggregate `build-site`, GitHub Pages deployment, or scheduled refresh yet. The next implementation step should derive a compact Treasury Securities Net Issuance dataset from this source.
+
 ### TGA Explorer Derived Dataset
 
 Derived from:
@@ -349,20 +400,21 @@ The legacy default `transaction_fytd_amt` minimum of `100000` currently filters 
 
 ## Current Storage Snapshot
 
-A live `uv run macro-observatory storage-report` after the TGA Explorer data artifact checkpoint showed:
+A live `uv run macro-observatory storage-report` after the Treasury Auctions Query source checkpoint showed:
 
 ```text
-source cache         4,182.2 KB
+source cache         6,140.5 KB
 derived cache        3,886.8 KB
-metadata                13.4 KB
+metadata                32.0 KB
 site data           63,674.4 KB
-overall             71,756.9 KB
+overall             73,733.7 KB
 ```
 
 Notable generated artifact sizes:
 
 ```text
 data/cache/sources/treasury_dts_deposits_withdrawals_operating_cash.parquet           3,831.5 KB
+data/cache/sources/treasury_od_auctions_query.parquet                                1,958.3 KB
 data/cache/derived/treasury_dts_deposits_withdrawals_operating_cash_explorer.parquet  3,502.6 KB
 site/data/tga-explorer.json                                                          32,359.0 KB
 site/data/tga-explorer.csv                                                           29,275.6 KB
@@ -381,7 +433,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoints are watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`, then implementing the `treasury_od_auctions_query` source dataset for the Treasury Securities Net Issuance milestone.
+The next likely checkpoints are watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`, then building the derived `treasury_securities_net_issuance` dataset from `treasury_od_auctions_query` for the Treasury Securities Net Issuance milestone.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -407,3 +459,4 @@ Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dis
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
 - Scheduled refresh workflow timing should be validated with live runs on the next market day. The workflow uses UTC cron entries with Pacific/Eastern comments; daylight-saving behavior should be reviewed after observing several weeks of runs.
+- Treasury Auctions Query currently has 4 null `total_accepted` rows and future issue/maturity dates in the source endpoint; the derived Treasury Securities Net Issuance builder should make those policies explicit.

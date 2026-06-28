@@ -11,10 +11,13 @@ from macro_observatory.cache import load_cache, load_metadata, update_dataset
 from macro_observatory.models import DatasetSpec
 from macro_observatory.registry import build_registry
 from macro_observatory.sources.treasury import (
+    TREASURY_AUCTIONS_QUERY_COLUMNS,
+    TREASURY_AUCTIONS_QUERY_ENDPOINT,
     TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_COLUMNS,
     TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT,
     TREASURY_OPERATING_CASH_BALANCE_COLUMNS,
     TreasuryFiscalDataAdapter,
+    auctions_query_adapter,
     deposits_withdrawals_operating_cash_adapter,
 )
 
@@ -78,6 +81,32 @@ def deposits_withdrawals_row(
     }
 
 
+def auctions_row(
+    record_date: str,
+    cusip: str,
+    *,
+    security_type: str = "Note",
+    auction_date: str = "2026-06-24",
+    issue_date: str = "2026-06-30",
+    maturity_date: str = "2036-06-30",
+    total_accepted: str = "2401000000",
+) -> dict[str, str]:
+    row = {column: "null" for column in TREASURY_AUCTIONS_QUERY_COLUMNS}
+    row.update(
+        {
+            "record_date": record_date,
+            "cusip": cusip,
+            "security_type": security_type,
+            "security_term": "10-Year",
+            "auction_date": auction_date,
+            "issue_date": issue_date,
+            "maturity_date": maturity_date,
+            "total_accepted": total_accepted,
+        }
+    )
+    return row
+
+
 def fiscal_payload_for_columns(
     rows: list[dict[str, str]],
     columns: tuple[str, ...],
@@ -100,6 +129,9 @@ def fiscal_payload_for_columns(
         if column in data_types:
             data_types[column] = "CURRENCY0"
             data_formats[column] = "$1,000,000"
+    if "total_accepted" in data_types:
+        data_types["total_accepted"] = "NUMBER"
+        data_formats["total_accepted"] = "10.2"
     return {
         "data": rows,
         "meta": {
@@ -189,6 +221,11 @@ class FakeAdapter:
 
 def treasury_spec(tmp_path: Path, adapter: FakeAdapter) -> DatasetSpec:
     spec = build_registry(tmp_path)["treasury_dts_operating_cash_balance"]
+    return replace(spec, adapter=adapter)
+
+
+def treasury_auctions_spec(tmp_path: Path, adapter: FakeAdapter) -> DatasetSpec:
+    spec = build_registry(tmp_path)["treasury_od_auctions_query"]
     return replace(spec, adapter=adapter)
 
 
@@ -379,3 +416,82 @@ def test_treasury_deposits_withdrawals_adapter_uses_endpoint_and_schema() -> Non
     assert metadata["endpoint_url"] == TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT
     assert metadata["rows_fetched"] == 1
     assert metadata["fiscal_data_meta"]["dataFormats"]["transaction_today_amt"] == "$1,000,000"
+
+
+def test_treasury_auctions_query_adapter_uses_endpoint_schema_and_sort() -> None:
+    row = auctions_row(
+        "1979-11-15",
+        "912827KC5",
+        auction_date="1979-10-31",
+        issue_date="1979-11-15",
+        maturity_date="1989-11-15",
+    )
+    session = FakeSession(
+        responses=[
+            fiscal_payload_for_columns([row], TREASURY_AUCTIONS_QUERY_COLUMNS, total_pages=1)
+        ],
+        calls=[],
+    )
+    adapter = auctions_query_adapter(session=session, timeout=9.0, page_size=50)
+
+    df = adapter.fetch(date(1979, 11, 1))
+
+    assert session.calls == [
+        {
+            "url": TREASURY_AUCTIONS_QUERY_ENDPOINT,
+            "params": {
+                "filter": "record_date:gte:1979-11-01",
+                "sort": "record_date,cusip,auction_date,issue_date,maturity_date",
+                "page[number]": "1",
+                "page[size]": "50",
+            },
+            "timeout": 9.0,
+        }
+    ]
+    assert tuple(df.columns) == TREASURY_AUCTIONS_QUERY_COLUMNS
+    assert df.loc[0, "cusip"] == "912827KC5"
+
+    metadata = adapter.source_metadata()
+    assert metadata is not None
+    assert metadata["endpoint_url"] == TREASURY_AUCTIONS_QUERY_ENDPOINT
+    assert metadata["rows_fetched"] == 1
+    assert metadata["fiscal_data_meta"]["dataFormats"]["total_accepted"] == "10.2"
+
+
+def test_treasury_auctions_query_cache_normalizes_total_accepted(tmp_path: Path) -> None:
+    adapter = FakeAdapter(
+        frames=[
+            pd.DataFrame(
+                [
+                    auctions_row(
+                        "1979-11-15",
+                        "912827KC5",
+                        auction_date="1979-10-31",
+                        issue_date="1979-11-15",
+                        maturity_date="1989-11-15",
+                        total_accepted="2401000000",
+                    )
+                ]
+            )
+        ],
+        starts=[],
+        metadata={"fiscal_data_meta": {"dataFormats": {"total_accepted": "10.2"}}},
+    )
+    spec = treasury_auctions_spec(tmp_path, adapter)
+
+    update_dataset(spec)
+
+    cached = load_cache(spec)
+    assert cached["record_date"].dt.date.tolist() == [date(1979, 11, 15)]
+    assert cached.loc[0, "cusip"] == "912827KC5"
+    assert cached.loc[0, "auction_date"] == "1979-10-31"
+    assert cached.loc[0, "issue_date"] == "1979-11-15"
+    assert cached.loc[0, "maturity_date"] == "1989-11-15"
+    assert cached.loc[0, "total_accepted"] == 2401000000
+
+    metadata = load_metadata(spec)
+    assert metadata is not None
+    assert metadata.source_units == "U.S. dollars"
+    assert metadata.source_metadata == {
+        "fiscal_data_meta": {"dataFormats": {"total_accepted": "10.2"}}
+    }

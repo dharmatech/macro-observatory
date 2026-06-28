@@ -75,6 +75,7 @@ fred_resppllopnww                                                Earnings Remitt
 nyfed_rrp                                                        New York Fed Reverse Repo Operations (RRP)
 treasury_dts_operating_cash_balance                              Treasury Daily Treasury Statement Operating Cash Balance
 treasury_dts_deposits_withdrawals_operating_cash                 Treasury Daily Treasury Statement Deposits and Withdrawals of Operating Cash
+treasury_od_auctions_query                                       Treasury Auctions Query
 treasury_tga                                                     Treasury General Account (TGA)
 treasury_dts_deposits_withdrawals_operating_cash_explorer        Treasury DTS Deposits and Withdrawals Explorer Dataset
 fed_net_liquidity                                                Fed Net Liquidity
@@ -189,6 +190,31 @@ Current local cache paths:
 ```text
 data/cache/sources/treasury_dts_deposits_withdrawals_operating_cash.parquet
 data/cache/metadata/treasury_dts_deposits_withdrawals_operating_cash.json
+```
+
+These cache files are ignored by git.
+
+## Update Treasury Auctions Query
+
+Run an incremental update for the local Treasury auctions query cache:
+
+```powershell
+uv run macro-observatory update treasury_od_auctions_query
+```
+
+This dataset uses the Treasury Fiscal Data API endpoint:
+
+```text
+https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query
+```
+
+The cache preserves the full endpoint for Pandas inspection and future Treasury securities pages. The current source checkpoint parses `total_accepted` as U.S. dollars and uses `record_date` for incremental updates.
+
+Current local cache paths:
+
+```text
+data/cache/sources/treasury_od_auctions_query.parquet
+data/cache/metadata/treasury_od_auctions_query.json
 ```
 
 These cache files are ignored by git.
@@ -666,6 +692,7 @@ uv run macro-observatory info fred_resppllopnww
 uv run macro-observatory info nyfed_rrp
 uv run macro-observatory info treasury_dts_operating_cash_balance
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash
+uv run macro-observatory info treasury_od_auctions_query
 uv run macro-observatory info treasury_tga
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash_explorer
 uv run macro-observatory info fed_net_liquidity
@@ -681,6 +708,7 @@ uv run macro-observatory show fred_resppllopnww --rows 10
 uv run macro-observatory show nyfed_rrp --rows 10
 uv run macro-observatory show treasury_dts_operating_cash_balance --rows 10
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash --rows 10
+uv run macro-observatory show treasury_od_auctions_query --rows 10
 uv run macro-observatory show treasury_tga --rows 10
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 10
 uv run macro-observatory show fed_net_liquidity --rows 10
@@ -692,6 +720,7 @@ Use a different row count as needed:
 uv run macro-observatory show nyfed_rrp --rows 25
 uv run macro-observatory show treasury_dts_operating_cash_balance --rows 25
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash --rows 25
+uv run macro-observatory show treasury_od_auctions_query --rows 25
 uv run macro-observatory show treasury_tga --rows 25
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 25
 uv run macro-observatory show fed_net_liquidity --rows 25
@@ -707,6 +736,7 @@ uv run macro-observatory export fred_resppllopnww --format csv --output exports/
 uv run macro-observatory export nyfed_rrp --format csv --output exports/nyfed_rrp.csv
 uv run macro-observatory export treasury_dts_operating_cash_balance --format csv --output exports/treasury_dts_operating_cash_balance.csv
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash --format csv --output exports/treasury_dts_deposits_withdrawals_operating_cash.csv
+uv run macro-observatory export treasury_od_auctions_query --format csv --output exports/treasury_od_auctions_query.csv
 uv run macro-observatory export treasury_tga --format csv --output exports/treasury_tga.csv
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash_explorer --format csv --output exports/treasury_dts_deposits_withdrawals_operating_cash_explorer.csv
 uv run macro-observatory export fed_net_liquidity --format csv --output exports/fed_net_liquidity.csv
@@ -720,6 +750,7 @@ uv run macro-observatory export fred_resppllopnww --format parquet --output expo
 uv run macro-observatory export nyfed_rrp --format parquet --output exports/nyfed_rrp.parquet
 uv run macro-observatory export treasury_dts_operating_cash_balance --format parquet --output exports/treasury_dts_operating_cash_balance.parquet
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash --format parquet --output exports/treasury_dts_deposits_withdrawals_operating_cash.parquet
+uv run macro-observatory export treasury_od_auctions_query --format parquet --output exports/treasury_od_auctions_query.parquet
 uv run macro-observatory export treasury_tga --format parquet --output exports/treasury_tga.parquet
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash_explorer --format parquet --output exports/treasury_dts_deposits_withdrawals_operating_cash_explorer.parquet
 uv run macro-observatory export fed_net_liquidity --format parquet --output exports/fed_net_liquidity.parquet
@@ -745,6 +776,7 @@ df_resp = load_dataset("fred_resppllopnww")
 df_rrp = load_dataset("nyfed_rrp")
 df_treasury_ocb = load_dataset("treasury_dts_operating_cash_balance")
 df_treasury_deposits_withdrawals = load_dataset("treasury_dts_deposits_withdrawals_operating_cash")
+df_treasury_auctions = load_dataset("treasury_od_auctions_query")
 df_tga = load_dataset("treasury_tga")
 df_tga_explorer = load_dataset("treasury_dts_deposits_withdrawals_operating_cash_explorer")
 df_net_liquidity = load_dataset("fed_net_liquidity")
@@ -754,6 +786,7 @@ df_resp.tail()
 df_rrp.tail()
 df_treasury_ocb.tail()
 df_treasury_deposits_withdrawals.tail()
+df_treasury_auctions.tail()
 df_tga.tail()
 df_tga_explorer.tail()
 df_net_liquidity.tail()
@@ -764,6 +797,17 @@ df_tga.groupby(["source_account_type", "source_balance_field"]).agg(
     min_date=("date", "min"),
     max_date=("date", "max"),
 )
+df_treasury_auctions[
+    [
+        "record_date",
+        "cusip",
+        "security_type",
+        "auction_date",
+        "issue_date",
+        "maturity_date",
+        "total_accepted",
+    ]
+].tail()
 ```
 
 The normal user-facing API should use dataset IDs rather than requiring users to know cache file paths.
@@ -778,6 +822,7 @@ uv run macro-observatory --data-dir scratch-data update fred_resppllopnww
 uv run macro-observatory --data-dir scratch-data update nyfed_rrp
 uv run macro-observatory --data-dir scratch-data update treasury_dts_operating_cash_balance
 uv run macro-observatory --data-dir scratch-data update treasury_dts_deposits_withdrawals_operating_cash
+uv run macro-observatory --data-dir scratch-data update treasury_od_auctions_query
 uv run macro-observatory --data-dir scratch-data build-derived treasury_tga
 uv run macro-observatory --data-dir scratch-data build-derived treasury_dts_deposits_withdrawals_operating_cash_explorer
 uv run macro-observatory --data-dir scratch-data build-derived fed_net_liquidity
@@ -787,12 +832,14 @@ uv run macro-observatory --data-dir scratch-data storage-report --site-dir scrat
 uv run macro-observatory --data-dir scratch-data info nyfed_rrp
 uv run macro-observatory --data-dir scratch-data info treasury_dts_operating_cash_balance
 uv run macro-observatory --data-dir scratch-data info treasury_dts_deposits_withdrawals_operating_cash
+uv run macro-observatory --data-dir scratch-data info treasury_od_auctions_query
 uv run macro-observatory --data-dir scratch-data info treasury_tga
 uv run macro-observatory --data-dir scratch-data info treasury_dts_deposits_withdrawals_operating_cash_explorer
 uv run macro-observatory --data-dir scratch-data info fed_net_liquidity
 uv run macro-observatory --data-dir scratch-data show nyfed_rrp --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_dts_operating_cash_balance --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_dts_deposits_withdrawals_operating_cash --rows 5
+uv run macro-observatory --data-dir scratch-data show treasury_od_auctions_query --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_tga --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 5
 uv run macro-observatory --data-dir scratch-data show fed_net_liquidity --rows 5

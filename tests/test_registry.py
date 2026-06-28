@@ -20,6 +20,7 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
         "treasury_dts_deposits_withdrawals_operating_cash",
         "treasury_dts_deposits_withdrawals_operating_cash_explorer",
         "treasury_dts_operating_cash_balance",
+        "treasury_od_auctions_query",
         "treasury_tga",
     ]
 
@@ -89,6 +90,29 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
     assert deposits_withdrawals.source_units == "millions of U.S. dollars"
     assert deposits_withdrawals.display_units == "millions of U.S. dollars"
 
+    auctions = registry["treasury_od_auctions_query"]
+    assert auctions.title == "Treasury Auctions Query"
+    assert auctions.source_name == "Treasury Fiscal Data"
+    assert auctions.kind == "source"
+    assert isinstance(auctions.adapter, TreasuryFiscalDataAdapter)
+    assert auctions.date_column == "record_date"
+    assert auctions.primary_key == (
+        "record_date",
+        "cusip",
+        "auction_date",
+        "issue_date",
+        "maturity_date",
+    )
+    assert (
+        auctions.cache_path == tmp_path / "cache" / "sources" / "treasury_od_auctions_query.parquet"
+    )
+    assert (
+        auctions.metadata_path
+        == tmp_path / "cache" / "metadata" / "treasury_od_auctions_query.json"
+    )
+    assert auctions.source_units == "U.S. dollars"
+    assert auctions.display_units == "U.S. dollars"
+
     tga = registry["treasury_tga"]
     assert tga.title == "Treasury General Account (TGA)"
     assert tga.source_name == "Macro Observatory Derived"
@@ -150,6 +174,7 @@ def test_get_dataset_spec_error_lists_known_ids(tmp_path: Path) -> None:
     assert "treasury_dts_deposits_withdrawals_operating_cash" in message
     assert "treasury_dts_deposits_withdrawals_operating_cash_explorer" in message
     assert "treasury_dts_operating_cash_balance" in message
+    assert "treasury_od_auctions_query" in message
     assert "treasury_tga" in message
 
 

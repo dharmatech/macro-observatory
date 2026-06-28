@@ -8,8 +8,10 @@ from macro_observatory.models import DatasetSpec
 from macro_observatory.sources.fred import FredSeriesAdapter
 from macro_observatory.sources.nyfed import NyFedReverseRepoAdapter
 from macro_observatory.sources.treasury import (
+    TREASURY_AUCTIONS_QUERY_COLUMNS,
     TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_COLUMNS,
     TREASURY_OPERATING_CASH_BALANCE_COLUMNS,
+    auctions_query_adapter,
     deposits_withdrawals_operating_cash_adapter,
     operating_cash_balance_adapter,
 )
@@ -138,6 +140,30 @@ def _treasury_deposits_withdrawals_operating_cash_spec(
     )
 
 
+def _treasury_auctions_query_spec(source_dir: Path, metadata_dir: Path) -> DatasetSpec:
+    return DatasetSpec(
+        id="treasury_od_auctions_query",
+        title="Treasury Auctions Query",
+        source_name="Treasury Fiscal Data",
+        adapter=auctions_query_adapter(),
+        date_column="record_date",
+        primary_key=(
+            "record_date",
+            "cusip",
+            "auction_date",
+            "issue_date",
+            "maturity_date",
+        ),
+        overlap_days=14,
+        cache_path=source_dir / "treasury_od_auctions_query.parquet",
+        metadata_path=metadata_dir / "treasury_od_auctions_query.json",
+        required_columns=TREASURY_AUCTIONS_QUERY_COLUMNS,
+        numeric_columns=("total_accepted",),
+        source_units=US_DOLLARS,
+        display_units=US_DOLLARS,
+    )
+
+
 def _treasury_tga_spec(derived_dir: Path, metadata_dir: Path) -> DatasetSpec:
     return DatasetSpec(
         id="treasury_tga",
@@ -255,6 +281,7 @@ def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
         _nyfed_rrp_spec(source_dir, metadata_dir),
         _treasury_operating_cash_balance_spec(source_dir, metadata_dir),
         _treasury_deposits_withdrawals_operating_cash_spec(source_dir, metadata_dir),
+        _treasury_auctions_query_spec(source_dir, metadata_dir),
         _treasury_tga_spec(derived_dir, metadata_dir),
         _treasury_deposits_withdrawals_explorer_spec(derived_dir, metadata_dir),
         _fed_net_liquidity_spec(derived_dir, metadata_dir),

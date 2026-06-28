@@ -1,6 +1,6 @@
 # Treasury Securities Net Issuance Milestone
 
-Status: draft
+Status: source dataset checkpoint implemented
 
 This document defines the next Macro Observatory implementation milestone: build a static Treasury Securities Net Issuance page inspired by the legacy Streamlit `Treasury Securities Net Issuance Resample` page.
 
@@ -82,6 +82,35 @@ The legacy cache had repeated `cusip` values, but no duplicates for this fuller 
 ```text
 record_date, cusip, auction_date, issue_date, maturity_date
 ```
+
+## Source Dataset Checkpoint Result
+
+The source dataset checkpoint is implemented and locally validated.
+
+Local result on June 28, 2026:
+
+```text
+rows: 11,022
+columns: 113
+date range: 1979-11-15 to 2026-07-02
+issue date range: 1979-11-15 to 2026-07-02
+maturity date range: 1980-04-03 to 2056-05-15
+duplicate primary keys: 0
+source parquet: 1,958.3 KB
+metadata JSON: 18.5 KB
+```
+
+The immediate second update validated incremental behavior:
+
+```text
+rows before: 11,022
+rows fetched: 21
+rows after: 11,022
+```
+
+The live Fiscal Data metadata currently reports `total_accepted` as `NUMBER` with data format `10.2`, and the cached source treats it as U.S. dollars. Four current rows have null `total_accepted`; later derived builders should handle those rows explicitly.
+
+The current endpoint already includes future issue and maturity dates, so the future-maturities note remains part of the page design.
 
 ## Derived Dataset
 
@@ -230,9 +259,9 @@ The exact time should be checked against current Treasury publishing behavior be
 
 ### 1. Source Dataset Checkpoint
 
-Complete when Macro Observatory can register `treasury_od_auctions_query`, fetch the full endpoint with pagination, update incrementally, cache source Parquet and metadata, load the dataset in Pandas, and show it through `datasets`, `info`, `show`, and `storage-report`.
+Completed. Macro Observatory can register `treasury_od_auctions_query`, fetch the full endpoint with pagination, update incrementally, cache source Parquet and metadata, load the dataset in Pandas, and show it through `datasets`, `info`, `show`, and `storage-report`.
 
-Stop after this checkpoint to inspect schema, row count, date ranges, file size, and primary-key behavior.
+This checkpoint stopped after inspecting schema, row count, date ranges, file size, and primary-key behavior.
 
 ### 2. Derived Dataset Checkpoint
 
