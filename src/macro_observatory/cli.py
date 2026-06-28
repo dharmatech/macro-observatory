@@ -21,6 +21,7 @@ from macro_observatory.publish import (
 )
 from macro_observatory.registry import DEFAULT_DATA_DIR, build_registry, get_dataset_spec
 from macro_observatory.server import DEFAULT_HOST, DEFAULT_PORT, SiteDirectoryError, serve_site
+from macro_observatory.site_build import BuildSiteError, BuildSiteResult, build_static_site
 
 
 def _data_dir(value: str | None) -> Path:
@@ -61,6 +62,16 @@ def _print_publish_result(result: PublishResult) -> None:
     print(f"metadata: {result.metadata_path}")
 
 
+def _print_build_site_result(result: BuildSiteResult) -> None:
+    print("built static site")
+    print(f"data dir: {result.data_dir}")
+    print(f"site dir: {result.site_dir}")
+    print(f"source datasets updated: {len(result.source_results)}")
+    print(f"derived datasets built: {len(result.derived_results)}")
+    print(f"published datasets: {len(result.publish_results)}")
+    print(f"nojekyll: {result.nojekyll_path}")
+
+
 def _update(args: argparse.Namespace) -> int:
     spec = get_dataset_spec(args.dataset_id, _data_dir(args.data_dir))
     if spec.kind == "derived":
@@ -93,6 +104,21 @@ def _publish(args: argparse.Namespace) -> int:
         print(str(exc))
         return 1
     _print_publish_result(result)
+    return 0
+
+
+def _build_site(args: argparse.Namespace) -> int:
+    site_dir = Path(args.site_dir) if args.site_dir else DEFAULT_SITE_DIR
+    try:
+        result = build_static_site(
+            data_dir=_data_dir(args.data_dir),
+            site_dir=site_dir,
+            require_fred_api_key=args.require_fred_api_key,
+        )
+    except BuildSiteError as exc:
+        print(str(exc))
+        return 1
+    _print_build_site_result(result)
     return 0
 
 
@@ -182,6 +208,18 @@ def build_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument("dataset_id")
     publish_parser.add_argument("--site-dir", help="Static site output directory")
     publish_parser.set_defaults(func=_publish)
+
+    build_site_parser = subparsers.add_parser(
+        "build-site",
+        help="Update current source datasets and publish all static-site artifacts",
+    )
+    build_site_parser.add_argument("--site-dir", help="Static site output directory")
+    build_site_parser.add_argument(
+        "--require-fred-api-key",
+        action="store_true",
+        help="Fail if FRED_API_KEY is not configured",
+    )
+    build_site_parser.set_defaults(func=_build_site)
 
     storage_report_parser = subparsers.add_parser(
         "storage-report", help="Show known project data file sizes"

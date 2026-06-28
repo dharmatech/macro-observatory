@@ -25,6 +25,7 @@ Current implementation priorities:
 - `docs/design/02-data-layer-and-cache.md`
 - `docs/design/03-static-site-interfaces.md`
 - `docs/design/04-tga-explorer-milestone.md`
+- `docs/design/05-github-pages-deployment.md`
 - `docs/design/90-future-deployment-options.md`
 - `docs/design/91-browser-data-formats.md`
 
@@ -48,8 +49,10 @@ Current implementation priorities:
 - Derived TGA Explorer dataset: `treasury_dts_deposits_withdrawals_operating_cash_explorer`.
 - TGA Explorer published browser artifacts under `site/data/`.
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
+- Aggregate static-site build command via `build-site`.
+- GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
 
-The TGA Explorer data artifact checkpoint and first page UI checkpoint are complete.
+The TGA Explorer page UI checkpoint and initial GitHub Pages deployment checkpoint are complete. Scheduled data refresh is still separate future work.
 
 ## Implemented Architecture
 
@@ -67,7 +70,8 @@ Current package files:
 - `src/macro_observatory/registry.py`: dataset registry for source and derived datasets.
 - `src/macro_observatory/data.py`: user-facing `load_dataset(...)` helper.
 - `src/macro_observatory/server.py`: local static-site server helper for `serve-site`.
-- `src/macro_observatory/cli.py`: CLI commands for datasets, update, build-derived, publish, storage-report, serve-site, info, show, and export.
+- `src/macro_observatory/site_build.py`: aggregate static-site build orchestration for deployment artifacts.
+- `src/macro_observatory/cli.py`: CLI commands for datasets, update, build-derived, publish, build-site, storage-report, serve-site, info, show, and export.
 
 Current static-site files:
 
@@ -79,7 +83,7 @@ Current static-site files:
 - `site/assets/js/fed-net-liquidity.js`
 - `site/assets/js/tga-explorer.js`
 
-Generated data under `data/cache/` and `site/data/` is ignored by git.
+Generated data under `data/cache/` and `site/data/` is ignored by git. GitHub Pages deployment regenerates those paths in Actions and uploads `site/` as the Pages artifact.
 
 Shared static behavior:
 
@@ -160,6 +164,13 @@ uv run macro-observatory storage-report
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash_explorer
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 10
+```
+
+Build all current static-site artifacts:
+
+```powershell
+uv run macro-observatory build-site
+uv run macro-observatory build-site --require-fred-api-key
 ```
 
 Serve the static site locally:
@@ -359,18 +370,12 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is manual browser inspection of the TGA Explorer page, followed by GitHub Pages deployment automation if the page behavior is acceptable.
+The next likely checkpoint is scheduled data refresh in GitHub Actions.
 
-Recommended manual checks:
+That work should stay separate from the initial Pages deployment and should define dataset-specific schedules, release-time buffers, short retry/backoff behavior, idempotent repeated runs, and freshness metadata shown subtly in the site UI.
 
-- Load `http://localhost:8000/pages/tga-explorer/` with `uv run macro-observatory serve-site` running.
-- Record the diagnostics line after first render.
-- Try the legacy FYTD minimum `100000` and confirm the guardrail refuses to render over `10,000` rows.
-- Try narrower category filters and confirm chart updates remain responsive.
-- Verify the existing Fed Net Liquidity page still behaves normally.
-- Try `Expand`, `Restore`, and `Escape` on both current chart pages.
+Before that checkpoint, verify the first Pages deployment from the GitHub Actions tab and confirm the published site loads both current pages.
 
-After manual inspection, GitHub Pages deployment and GitHub Actions refresh workflows are still open.
 
 ## Known Open Questions
 

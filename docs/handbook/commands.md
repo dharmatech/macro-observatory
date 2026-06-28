@@ -436,6 +436,68 @@ uv run macro-observatory serve-site --site-dir scratch-site --port 8123
 ```
 
 
+## Build Static Site Artifacts
+
+Build the current complete static site locally:
+
+```powershell
+uv run macro-observatory build-site
+```
+
+This command updates the current source datasets, builds the current derived datasets, publishes the current browser artifacts, and writes:
+
+```text
+site/.nojekyll
+```
+
+The command currently builds the Fed Net Liquidity page and the TGA Explorer page. It uses public network APIs, so it may take a while on a cold cache.
+
+For the official GitHub Pages deployment policy, require the FRED API key explicitly:
+
+```powershell
+uv run macro-observatory build-site --require-fred-api-key
+```
+
+Use a different static-site output directory when needed:
+
+```powershell
+uv run macro-observatory build-site --site-dir scratch-site
+```
+
+## GitHub Pages Deployment
+
+The repository deploys GitHub Pages with:
+
+```text
+.github/workflows/pages.yml
+```
+
+The workflow runs on pushes to `main` and can also be started manually from the GitHub Actions tab.
+
+The repository must have this GitHub Actions repository secret configured:
+
+```text
+FRED_API_KEY
+```
+
+The secret is read only by the data build step. It must not be committed to git and must not be emitted into generated site data.
+
+The GitHub Pages source should be set to:
+
+```text
+GitHub Actions
+```
+
+Do not use branch-folder publishing for this project. `site/data/` is generated output and is ignored by git, so the workflow uploads the generated `site/` directory as a Pages artifact instead.
+
+To inspect the generated artifact locally before pushing:
+
+```powershell
+uv run macro-observatory build-site --require-fred-api-key
+uv run macro-observatory storage-report
+uv run macro-observatory serve-site
+```
+
 ## Storage Report
 Show a concise cross-platform report of known project data files:
 
