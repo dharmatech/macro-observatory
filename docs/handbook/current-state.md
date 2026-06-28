@@ -403,7 +403,7 @@ site/data/treasury-securities-net-issuance.csv
 site/data/treasury-securities-net-issuance-metadata.json
 ```
 
-The Treasury Securities Net Issuance JSON artifact uses compact JSON `split` orientation and is currently about 4.0 MB. The page defaults to `ME`, filters by frequency and security type in JavaScript, sends only non-zero `net_issuance` points to Plotly, always shows the Plotly legend for rendered traces, shows a visible `Today` marker, reports timing diagnostics, supports shared viewport-expanded chart mode, and supports `Copy Link` share URLs that persist grouping, checked security types, and x/y axis ranges in the URL hash.
+The Treasury Securities Net Issuance JSON artifact uses compact JSON `split` orientation and is currently about 4.0 MB. The page defaults to `ME`, filters by frequency and security type in JavaScript, sends only non-zero `net_issuance` points to Plotly, always shows the Plotly legend for rendered traces, shows a visible `Today` marker, reports timing diagnostics, supports shared viewport-expanded chart mode, and supports `Copy Link` share URLs that persist grouping, checked security types, and x/y axis ranges in the URL hash. The `Copy Link` action is available from both normal and expanded chart headers.
 
 Static page:
 

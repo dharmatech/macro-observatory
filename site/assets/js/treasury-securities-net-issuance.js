@@ -30,6 +30,7 @@
   let renderSequence = 0;
   let pendingAxisRanges = null;
   let copyFeedbackTimer = null;
+  let copyFeedbackTargets = [];
   const timings = {
     fetch: null,
     parse: null,
@@ -699,16 +700,28 @@
     return url.toString();
   }
 
-  function setCopyFeedback(message) {
+  function setCopyFeedback(message, feedbackButton) {
     const ui = controls();
     const status = element("copy-link-status");
     if (copyFeedbackTimer !== null) {
       window.clearTimeout(copyFeedbackTimer);
     }
-    ui.copyLink.textContent = message === "Copied" ? "Copied" : "Copy Link";
+    copyFeedbackTargets.forEach((button) => {
+      button.textContent = "Copy Link";
+    });
+    copyFeedbackTargets = [ui.copyLink];
+    if (feedbackButton && feedbackButton !== ui.copyLink) {
+      copyFeedbackTargets.push(feedbackButton);
+    }
+    copyFeedbackTargets.forEach((button) => {
+      button.textContent = message === "Copied" ? "Copied" : "Link Ready";
+    });
     status.textContent = message;
     copyFeedbackTimer = window.setTimeout(() => {
-      ui.copyLink.textContent = "Copy Link";
+      copyFeedbackTargets.forEach((button) => {
+        button.textContent = "Copy Link";
+      });
+      copyFeedbackTargets = [];
       status.textContent = "";
       copyFeedbackTimer = null;
     }, COPY_FEEDBACK_MS);
@@ -744,11 +757,11 @@
     return fallbackCopy(text);
   }
 
-  async function copyShareLink() {
+  async function copyShareLink(feedbackButton) {
     const shareUrl = buildShareUrl();
     window.history.replaceState(null, "", shareUrl);
     const copied = await copyText(shareUrl);
-    setCopyFeedback(copied ? "Copied" : "Link in address bar");
+    setCopyFeedback(copied ? "Copied" : "Link in address bar", feedbackButton);
   }
 
   function setupControls() {
@@ -816,7 +829,15 @@
       frameId: "treasury-securities-chart-frame",
       chartId: "treasury-securities-chart",
       title: "Treasury Securities Net Issuance",
-      metaId: "filtered-range-label"
+      metaId: "filtered-range-label",
+      headerActions: [
+        {
+          id: "treasury-securities-expanded-copy-link",
+          label: "Copy Link",
+          ariaLabel: "Copy link to current Treasury Securities chart view",
+          onClick: ({ button }) => copyShareLink(button)
+        }
+      ]
     });
 
     try {

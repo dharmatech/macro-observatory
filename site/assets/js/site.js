@@ -185,15 +185,60 @@
     const metaElement = document.createElement("span");
     metaElement.className = "chart-expand-meta";
 
+    const actionBlock = document.createElement("div");
+    actionBlock.className = "chart-expand-actions";
+
+    const headerActions = Array.isArray(options.headerActions) ? options.headerActions.filter(Boolean) : [];
+    headerActions.forEach((action) => {
+      const actionButton = document.createElement("button");
+      actionButton.type = "button";
+      actionButton.className = action.className
+        ? `chart-expand-action ${action.className}`
+        : "chart-expand-action";
+      actionButton.textContent = action.label || "Action";
+      if (action.id) {
+        actionButton.id = action.id;
+      }
+      if (action.ariaLabel) {
+        actionButton.setAttribute("aria-label", action.ariaLabel);
+      }
+      if (action.title) {
+        actionButton.title = action.title;
+      }
+      actionButton.addEventListener("click", (event) => {
+        if (typeof action.onClick !== "function") {
+          return;
+        }
+        try {
+          const result = action.onClick({
+            button: actionButton,
+            event,
+            expand,
+            restore,
+            isExpanded: () => expanded
+          });
+          if (result && typeof result.catch === "function") {
+            result.catch((error) => {
+              showError(error && error.message ? error.message : String(error));
+            });
+          }
+        } catch (error) {
+          showError(error && error.message ? error.message : String(error));
+        }
+      });
+      actionBlock.appendChild(actionButton);
+    });
+
     const restoreButton = document.createElement("button");
     restoreButton.type = "button";
     restoreButton.className = "chart-expand-restore";
     restoreButton.textContent = "Restore";
+    actionBlock.appendChild(restoreButton);
 
     titleBlock.appendChild(titleElement);
     titleBlock.appendChild(metaElement);
     header.appendChild(titleBlock);
-    header.appendChild(restoreButton);
+    header.appendChild(actionBlock);
     frame.insertBefore(header, frame.firstChild);
 
     button.setAttribute("aria-controls", options.frameId);

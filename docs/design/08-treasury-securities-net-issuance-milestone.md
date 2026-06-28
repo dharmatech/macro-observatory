@@ -271,7 +271,7 @@ The page also supports first-pass shareable view state through the URL hash. The
 #v=1&freq=ME&types=Bill&x0=2020-03-01&x1=2021-12-31&y0=-600&y1=900
 ```
 
-The first version intentionally does not persist Plotly legend-only visibility, expanded chart mode, hover state, or range-selector button state. The left-side security-type checkboxes are the canonical shareable series state.
+The first version intentionally does not persist Plotly legend-only visibility, expanded chart mode, hover state, or range-selector button state. The left-side security-type checkboxes are the canonical shareable series state. The page exposes the same `Copy Link` action in the normal chart header and the expanded chart header, so zoomed/panned expanded views can be shared without encoding expanded mode itself into the URL.
 
 Implemented page paths:
 

@@ -667,6 +667,7 @@ dd {
 }
 
 .chart-expand-button,
+.chart-expand-action,
 .chart-expand-restore {
   min-height: 34px;
   padding: 7px 12px;
@@ -681,12 +682,14 @@ dd {
 }
 
 .chart-expand-button:hover,
+.chart-expand-action:hover,
 .chart-expand-restore:hover {
   border-color: var(--primary);
   color: var(--primary);
 }
 
 .chart-expand-button:focus,
+.chart-expand-action:focus,
 .chart-expand-restore:focus {
   outline: 2px solid rgba(31, 95, 191, 0.28);
   outline-offset: 2px;
@@ -694,6 +697,15 @@ dd {
 
 .chart-expand-header {
   display: none;
+}
+
+.chart-expand-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 
 body.chart-expanded-active {
@@ -763,7 +775,12 @@ body.chart-expanded-active {
     gap: 8px;
   }
 
-  .chart-expand-restore {
+  .chart-expand-actions {
     width: 100%;
+  }
+
+  .chart-expand-action,
+  .chart-expand-restore {
+    flex: 1 1 150px;
   }
 }
