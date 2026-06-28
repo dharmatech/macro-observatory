@@ -139,10 +139,27 @@ result: success
 
 The deployed root page, both current dashboard pages, and both JSON data artifacts returned HTTP 200 after the cache-enabled deployment.
 
+First push-triggered cache-only run:
+
+```text
+run: 28316672934
+event: push
+head commit: 8c3f915
+cache restored: yes
+matched cache key: macro-observatory-data-cache-v1-Linux-28316049169
+build-site mode: from-cache
+source datasets updated: 0
+build-site duration: 8 seconds
+Validate required secrets step: skipped
+Save data cache step: skipped
+result: success
+```
+
+The deployed root page, both current dashboard pages, and sampled JSON data artifacts returned HTTP 200 after the push-triggered cache-only deployment.
+
 ## Next Steps
 
 After this checkpoint:
 
-1. Validate the first push-triggered cache-only deployment in GitHub Actions logs.
-2. Design scheduled refresh workflows for daily Treasury/New York Fed data and weekly FRED balance-sheet data.
-3. Keep dataset-level caches and external object storage as future options only if the single-cache workflow becomes too slow or too large.
+1. Design scheduled refresh workflows for daily Treasury/New York Fed data and weekly FRED balance-sheet data.
+2. Keep dataset-level caches and external object storage as future options only if the single-cache workflow becomes too slow or too large.

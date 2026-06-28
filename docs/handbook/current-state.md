@@ -378,6 +378,8 @@ The next likely checkpoint is scheduled data refresh now that deploy-on-push is 
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
+Push-triggered cache-only validation completed on June 28, 2026. Push run `28316672934` restored cache key `macro-observatory-data-cache-v1-Linux-28316049169`, ran `build-site --from-cache`, updated `0` source datasets, completed the build in 8 seconds, skipped secret validation, skipped cache saving, deployed successfully, and returned HTTP 200 for the root page, both current dashboard pages, and sampled JSON data artifacts.
+
 Deploy-on-push is re-enabled as a cache-only path. Push runs restore the existing Actions data cache, run `build-site --from-cache`, deploy `site/`, and skip source API updates and cache saving. Manual runs remain the only current path that refreshes source APIs and saves a new data-cache snapshot.
 
 
