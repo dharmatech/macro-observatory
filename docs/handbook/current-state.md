@@ -51,10 +51,11 @@ Current implementation priorities:
 - TGA Explorer published browser artifacts under `site/data/`.
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
 - Aggregate static-site build command via `build-site`.
-- Manual-only GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
+- GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
 - GitHub Actions data-cache persistence for `data/cache/` with explicit cold-build guardrail.
+- Push-triggered cache-only GitHub Pages deployment via `build-site --from-cache`.
 
-The TGA Explorer page UI checkpoint, initial GitHub Pages deployment checkpoint, and Actions cache persistence checkpoint are complete. Scheduled data refresh is still separate future work.
+The TGA Explorer page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, and push-triggered cache-only deployment checkpoint are complete. Scheduled data refresh is still separate future work.
 
 ## Implemented Architecture
 
@@ -72,7 +73,7 @@ Current package files:
 - `src/macro_observatory/registry.py`: dataset registry for source and derived datasets.
 - `src/macro_observatory/data.py`: user-facing `load_dataset(...)` helper.
 - `src/macro_observatory/server.py`: local static-site server helper for `serve-site`.
-- `src/macro_observatory/site_build.py`: aggregate static-site build orchestration for deployment artifacts.
+- `src/macro_observatory/site_build.py`: aggregate static-site build orchestration for deployment artifacts, including cache-only rebuild mode.
 - `src/macro_observatory/cli.py`: CLI commands for datasets, update, build-derived, publish, build-site, storage-report, serve-site, info, show, and export.
 
 Current static-site files:
@@ -85,7 +86,7 @@ Current static-site files:
 - `site/assets/js/fed-net-liquidity.js`
 - `site/assets/js/tga-explorer.js`
 
-Generated data under `data/cache/` and `site/data/` is ignored by git. Manual GitHub Pages deployment restores `data/cache/` from GitHub Actions cache, regenerates derived and browser artifacts, saves a new data-cache snapshot after a successful build, and uploads `site/` as the Pages artifact.
+Generated data under `data/cache/` and `site/data/` is ignored by git. Manual GitHub Pages deployment restores `data/cache/` from GitHub Actions cache, refreshes source data from APIs, regenerates derived and browser artifacts, saves a new data-cache snapshot after a successful build, and uploads `site/` as the Pages artifact. Push-triggered deployment restores the same cache, runs `build-site --from-cache`, uploads `site/`, and does not call source APIs or save a new data-cache snapshot.
 
 Shared static behavior:
 
@@ -173,6 +174,7 @@ Build all current static-site artifacts:
 ```powershell
 uv run macro-observatory build-site
 uv run macro-observatory build-site --require-fred-api-key
+uv run macro-observatory build-site --from-cache
 ```
 
 Serve the static site locally:
@@ -372,11 +374,11 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is re-enabling deploy-on-push, now that manual Actions data-cache validation succeeded.
+The next likely checkpoint is scheduled data refresh now that deploy-on-push is cache-only.
 
-Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds. Re-enable deploy-on-push as a separate checkpoint. Scheduled refresh should come after that.
+Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
-The first Pages deployment and cache-enabled deployment have both been verified. Future Pages runs remain manual-only until deploy-on-push is intentionally re-enabled.
+Deploy-on-push is re-enabled as a cache-only path. Push runs restore the existing Actions data cache, run `build-site --from-cache`, deploy `site/`, and skip source API updates and cache saving. Manual runs remain the only current path that refreshes source APIs and saves a new data-cache snapshot.
 
 
 ## Known Open Questions
@@ -387,4 +389,4 @@ The first Pages deployment and cache-enabled deployment have both been verified.
 - The TGA Explorer browser artifact is much larger than Fed Net Liquidity. The page now reports fetch, JSON parse, filtering, trace construction, and Plotly render timing, but those numbers still need browser testing on real machines.
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
-- Deploy-on-push is intentionally disabled even though Actions data-cache validation succeeded. Scheduled refresh workflows are not implemented yet.
+- Scheduled refresh workflows are not implemented yet.

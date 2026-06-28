@@ -66,6 +66,7 @@ def _print_build_site_result(result: BuildSiteResult) -> None:
     print("built static site")
     print(f"data dir: {result.data_dir}")
     print(f"site dir: {result.site_dir}")
+    print(f"source update mode: {result.source_update_mode}")
     print(f"source datasets updated: {len(result.source_results)}")
     print(f"derived datasets built: {len(result.derived_results)}")
     print(f"published datasets: {len(result.publish_results)}")
@@ -114,6 +115,7 @@ def _build_site(args: argparse.Namespace) -> int:
             data_dir=_data_dir(args.data_dir),
             site_dir=site_dir,
             require_fred_api_key=args.require_fred_api_key,
+            from_cache=args.from_cache,
         )
     except BuildSiteError as exc:
         print(str(exc))
@@ -217,7 +219,12 @@ def build_parser() -> argparse.ArgumentParser:
     build_site_parser.add_argument(
         "--require-fred-api-key",
         action="store_true",
-        help="Fail if FRED_API_KEY is not configured",
+        help="Fail if FRED_API_KEY is not configured before source updates",
+    )
+    build_site_parser.add_argument(
+        "--from-cache",
+        action="store_true",
+        help="Build derived and site artifacts from existing source caches without API updates",
     )
     build_site_parser.set_defaults(func=_build_site)
 

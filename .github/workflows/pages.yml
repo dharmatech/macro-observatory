@@ -1,7 +1,9 @@
 name: Deploy GitHub Pages
 
 on:
-  # Manual only while the Actions data-cache workflow is being validated.
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       allow_cold_build:
@@ -56,10 +58,11 @@ jobs:
 
       - name: Report data cache restore
         run: |
+          echo "EVENT_NAME=${{ github.event_name }}"
           echo "CACHE_HIT=${{ steps.data-cache-restore.outputs.cache-hit }}"
           echo "CACHE_PRIMARY_KEY=${{ steps.data-cache-restore.outputs.cache-primary-key }}"
           echo "CACHE_MATCHED_KEY=${{ steps.data-cache-restore.outputs.cache-matched-key }}"
-          echo "ALLOW_COLD_BUILD=${{ inputs.allow_cold_build }}"
+          echo "ALLOW_COLD_BUILD=${{ github.event.inputs.allow_cold_build }}"
           if [ -d data/cache ]; then
             du -sh data/cache
           else
@@ -67,22 +70,23 @@ jobs:
           fi
 
       - name: Refuse accidental cold build
-        if: ${{ steps.data-cache-restore.outputs.cache-hit == '' && inputs.allow_cold_build != 'true' }}
+        if: ${{ steps.data-cache-restore.outputs.cache-hit == '' && (github.event_name != 'workflow_dispatch' || github.event.inputs.allow_cold_build != 'true') }}
         run: |
           echo "::error::No Actions data cache was restored. Refusing cold API build. Rerun manually with allow_cold_build=true only if this is an intentional bootstrap or repair run."
           exit 1
 
       - name: Warn about intentional cold build
-        if: ${{ steps.data-cache-restore.outputs.cache-hit == '' && inputs.allow_cold_build == 'true' }}
+        if: ${{ steps.data-cache-restore.outputs.cache-hit == '' && github.event_name == 'workflow_dispatch' && github.event.inputs.allow_cold_build == 'true' }}
         run: |
           echo "::warning::No Actions data cache was restored. allow_cold_build=true, so this run will cold-build source data from APIs and save the first data/cache snapshot."
 
       - name: Validate required secrets
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
           if [ -z "$FRED_API_KEY" ]; then
-            echo "::error::FRED_API_KEY repository secret is required for GitHub Pages deployment."
+            echo "::error::FRED_API_KEY repository secret is required for source-data updates."
             exit 1
           fi
 
@@ -91,7 +95,13 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
           start=$(date +%s)
-          uv run macro-observatory build-site --require-fred-api-key
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "build-site mode: from-cache"
+            uv run macro-observatory build-site --from-cache
+          else
+            echo "build-site mode: update-sources"
+            uv run macro-observatory build-site --require-fred-api-key
+          fi
           end=$(date +%s)
           echo "build-site duration: $((end - start)) seconds"
           echo "data/cache size after build:"
@@ -101,6 +111,7 @@ jobs:
         run: uv run macro-observatory storage-report
 
       - name: Save data cache
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/cache/save@v6.1.0
         with:
           path: data/cache

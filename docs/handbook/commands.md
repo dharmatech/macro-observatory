@@ -438,7 +438,7 @@ uv run macro-observatory serve-site --site-dir scratch-site --port 8123
 
 ## Build Static Site Artifacts
 
-Build the current complete static site locally:
+Build the current complete static site locally and update source caches from APIs:
 
 ```powershell
 uv run macro-observatory build-site
@@ -452,11 +452,19 @@ site/.nojekyll
 
 The command currently builds the Fed Net Liquidity page and the TGA Explorer page. It uses public network APIs, so it may take a while on a cold cache.
 
-For the official GitHub Pages deployment policy, require the FRED API key explicitly:
+For the official manual GitHub Pages source-update policy, require the FRED API key explicitly:
 
 ```powershell
 uv run macro-observatory build-site --require-fred-api-key
 ```
+
+Build from existing local source caches without calling source APIs:
+
+```powershell
+uv run macro-observatory build-site --from-cache
+```
+
+This mode validates that all current source cache and metadata files exist, rebuilds derived caches and browser artifacts, and fails before any source API update path if a required source cache file is missing. The push-triggered GitHub Pages workflow uses this mode.
 
 Use a different static-site output directory when needed:
 
@@ -472,7 +480,17 @@ The repository deploys GitHub Pages with:
 .github/workflows/pages.yml
 ```
 
-The workflow is started manually from the GitHub Actions tab. It does not run automatically on pushes to `main` while the Actions data-cache behavior is being validated.
+The workflow runs automatically on pushes to `main` and can also be started manually from the GitHub Actions tab.
+
+Push-triggered runs are cache-only deploys. They restore the GitHub Actions `data/cache/` snapshot, fail if no cache is restored, run:
+
+```powershell
+uv run macro-observatory build-site --from-cache
+```
+
+and deploy the generated `site/` artifact. Push-triggered runs do not call source APIs and do not save a new data-cache snapshot.
+
+Manual runs are source-update deploys. They restore the same cache, run source API updates, rebuild derived and browser artifacts, save a new immutable cache snapshot after success, and deploy the generated `site/` artifact.
 
 The repository must have this GitHub Actions repository secret configured:
 
@@ -480,7 +498,7 @@ The repository must have this GitHub Actions repository secret configured:
 FRED_API_KEY
 ```
 
-The secret is read only by the data build step. It must not be committed to git and must not be emitted into generated site data.
+The secret is read only by manual source-update runs. It must not be committed to git and must not be emitted into generated site data.
 
 The GitHub Pages source should be set to:
 
@@ -496,7 +514,7 @@ The workflow restores and saves one GitHub Actions cache for:
 data/cache/
 ```
 
-Normal manual runs should use:
+Normal manual source-update runs should use:
 
 ```text
 allow_cold_build=false
@@ -522,12 +540,20 @@ The next run restores the newest matching cache through this prefix:
 macro-observatory-data-cache-v1-Linux-
 ```
 
-The workflow logs cache hit/miss state, matched cache key, `data/cache` size, `build-site` duration, and the storage report.
+The workflow logs event name, cache hit/miss state, matched cache key, `data/cache` size, selected `build-site` mode, `build-site` duration, and the storage report.
 
-To inspect the generated artifact locally before manually deploying:
+To inspect the generated artifact locally before a manual source-update deployment:
 
 ```powershell
 uv run macro-observatory build-site --require-fred-api-key
+uv run macro-observatory storage-report
+uv run macro-observatory serve-site
+```
+
+To inspect the generated artifact locally the same way a push deployment does:
+
+```powershell
+uv run macro-observatory build-site --from-cache
 uv run macro-observatory storage-report
 uv run macro-observatory serve-site
 ```
