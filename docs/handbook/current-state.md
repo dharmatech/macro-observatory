@@ -26,6 +26,7 @@ Current implementation priorities:
 - `docs/design/03-static-site-interfaces.md`
 - `docs/design/04-tga-explorer-milestone.md`
 - `docs/design/05-github-pages-deployment.md`
+- `docs/design/06-github-actions-cache-persistence.md`
 - `docs/design/90-future-deployment-options.md`
 - `docs/design/91-browser-data-formats.md`
 
@@ -51,8 +52,9 @@ Current implementation priorities:
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
 - Aggregate static-site build command via `build-site`.
 - Manual-only GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
+- GitHub Actions data-cache persistence for `data/cache/` with explicit cold-build guardrail.
 
-The TGA Explorer page UI checkpoint and initial GitHub Pages deployment checkpoint are complete. Scheduled data refresh is still separate future work.
+The TGA Explorer page UI checkpoint, initial GitHub Pages deployment checkpoint, and Actions cache persistence checkpoint are complete. Scheduled data refresh is still separate future work.
 
 ## Implemented Architecture
 
@@ -83,7 +85,7 @@ Current static-site files:
 - `site/assets/js/fed-net-liquidity.js`
 - `site/assets/js/tga-explorer.js`
 
-Generated data under `data/cache/` and `site/data/` is ignored by git. Manual GitHub Pages deployment regenerates those paths in Actions and uploads `site/` as the Pages artifact.
+Generated data under `data/cache/` and `site/data/` is ignored by git. Manual GitHub Pages deployment restores `data/cache/` from GitHub Actions cache, regenerates derived and browser artifacts, saves a new data-cache snapshot after a successful build, and uploads `site/` as the Pages artifact.
 
 Shared static behavior:
 
@@ -370,11 +372,11 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is remote source-cache persistence, followed by scheduled data refresh in GitHub Actions.
+The next likely checkpoint is validating the Actions data-cache workflow with manual runs, followed by re-enabling deploy-on-push if cache behavior is reliable.
 
-That work should stay separate from the initial Pages deployment. First decide how remote source caches persist across runs; then define dataset-specific schedules, release-time buffers, short retry/backoff behavior, idempotent repeated runs, and freshness metadata shown subtly in the site UI.
+Run the Pages workflow first with `allow_cold_build=true` to bootstrap the first cache snapshot, then run it with `allow_cold_build=false` to confirm a cache restore. If that behavior is reliable, re-enable deploy-on-push as a separate checkpoint. Scheduled refresh should come after that.
 
-The first Pages deployment has been verified. Future Pages runs should be manually dispatched only when an intentional cold rebuild is acceptable.
+The first Pages deployment has been verified. Future Pages runs should be manually dispatched while the Actions cache behavior is being validated.
 
 
 ## Known Open Questions
@@ -385,4 +387,4 @@ The first Pages deployment has been verified. Future Pages runs should be manual
 - The TGA Explorer browser artifact is much larger than Fed Net Liquidity. The page now reports fetch, JSON parse, filtering, trace construction, and Plotly render timing, but those numbers still need browser testing on real machines.
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
-- GitHub Actions deployment/update workflows are not implemented yet.
+- Deploy-on-push is intentionally disabled until Actions data-cache behavior is validated. Scheduled refresh workflows are not implemented yet.

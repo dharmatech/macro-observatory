@@ -472,7 +472,7 @@ The repository deploys GitHub Pages with:
 .github/workflows/pages.yml
 ```
 
-The workflow is started manually from the GitHub Actions tab. It does not run automatically on pushes to `main` while remote source-cache persistence is unresolved.
+The workflow is started manually from the GitHub Actions tab. It does not run automatically on pushes to `main` while the Actions data-cache behavior is being validated.
 
 The repository must have this GitHub Actions repository secret configured:
 
@@ -489,6 +489,40 @@ GitHub Actions
 ```
 
 Do not use branch-folder publishing for this project. `site/data/` is generated output and is ignored by git, so the workflow uploads the generated `site/` directory as a Pages artifact instead.
+
+The workflow restores and saves one GitHub Actions cache for:
+
+```text
+data/cache/
+```
+
+Normal manual runs should use:
+
+```text
+allow_cold_build=false
+```
+
+If no data cache is restored, normal runs fail before calling source APIs.
+
+The first cache-enabled deployment, or an intentional cache repair, should use:
+
+```text
+allow_cold_build=true
+```
+
+That setting allows a full API cold build only when explicitly requested. After a successful build, the workflow saves a new immutable cache snapshot with a key like:
+
+```text
+macro-observatory-data-cache-v1-Linux-<run_id>
+```
+
+The next run restores the newest matching cache through this prefix:
+
+```text
+macro-observatory-data-cache-v1-Linux-
+```
+
+The workflow logs cache hit/miss state, matched cache key, `data/cache` size, `build-site` duration, and the storage report.
 
 To inspect the generated artifact locally before manually deploying:
 

@@ -1,10 +1,20 @@
 name: Deploy GitHub Pages
 
 on:
-  # Manual only until remote source-cache persistence is designed.
+  # Manual only while the Actions data-cache workflow is being validated.
   workflow_dispatch:
+    inputs:
+      allow_cold_build:
+        description: "Allow full API cold build if no data/cache Actions cache is restored"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
+  actions: write
   contents: read
   pages: write
   id-token: write
@@ -35,6 +45,38 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked
 
+      - name: Restore data cache
+        id: data-cache-restore
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: data/cache
+          key: macro-observatory-data-cache-v1-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            macro-observatory-data-cache-v1-${{ runner.os }}-
+
+      - name: Report data cache restore
+        run: |
+          echo "CACHE_HIT=${{ steps.data-cache-restore.outputs.cache-hit }}"
+          echo "CACHE_PRIMARY_KEY=${{ steps.data-cache-restore.outputs.cache-primary-key }}"
+          echo "CACHE_MATCHED_KEY=${{ steps.data-cache-restore.outputs.cache-matched-key }}"
+          echo "ALLOW_COLD_BUILD=${{ inputs.allow_cold_build }}"
+          if [ -d data/cache ]; then
+            du -sh data/cache
+          else
+            echo "data/cache is not present before build"
+          fi
+
+      - name: Refuse accidental cold build
+        if: ${{ steps.data-cache-restore.outputs.cache-hit == '' && inputs.allow_cold_build != 'true' }}
+        run: |
+          echo "::error::No Actions data cache was restored. Refusing cold API build. Rerun manually with allow_cold_build=true only if this is an intentional bootstrap or repair run."
+          exit 1
+
+      - name: Warn about intentional cold build
+        if: ${{ steps.data-cache-restore.outputs.cache-hit == '' && inputs.allow_cold_build == 'true' }}
+        run: |
+          echo "::warning::No Actions data cache was restored. allow_cold_build=true, so this run will cold-build source data from APIs and save the first data/cache snapshot."
+
       - name: Validate required secrets
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
@@ -47,10 +89,22 @@ jobs:
       - name: Build site data
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-        run: uv run macro-observatory build-site --require-fred-api-key
+        run: |
+          start=$(date +%s)
+          uv run macro-observatory build-site --require-fred-api-key
+          end=$(date +%s)
+          echo "build-site duration: $((end - start)) seconds"
+          echo "data/cache size after build:"
+          du -sh data/cache
 
       - name: Show storage report
         run: uv run macro-observatory storage-report
+
+      - name: Save data cache
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: data/cache
+          key: ${{ steps.data-cache-restore.outputs.cache-primary-key }}
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6.0.0
