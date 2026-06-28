@@ -372,11 +372,11 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is validating the Actions data-cache workflow with manual runs, followed by re-enabling deploy-on-push if cache behavior is reliable.
+The next likely checkpoint is re-enabling deploy-on-push, now that manual Actions data-cache validation succeeded.
 
-Run the Pages workflow first with `allow_cold_build=true` to bootstrap the first cache snapshot, then run it with `allow_cold_build=false` to confirm a cache restore. If that behavior is reliable, re-enable deploy-on-push as a separate checkpoint. Scheduled refresh should come after that.
+Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds. Re-enable deploy-on-push as a separate checkpoint. Scheduled refresh should come after that.
 
-The first Pages deployment has been verified. Future Pages runs should be manually dispatched while the Actions cache behavior is being validated.
+The first Pages deployment and cache-enabled deployment have both been verified. Future Pages runs remain manual-only until deploy-on-push is intentionally re-enabled.
 
 
 ## Known Open Questions
@@ -387,4 +387,4 @@ The first Pages deployment has been verified. Future Pages runs should be manual
 - The TGA Explorer browser artifact is much larger than Fed Net Liquidity. The page now reports fetch, JSON parse, filtering, trace construction, and Plotly render timing, but those numbers still need browser testing on real machines.
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
-- Deploy-on-push is intentionally disabled until Actions data-cache behavior is validated. Scheduled refresh workflows are not implemented yet.
+- Deploy-on-push is intentionally disabled even though Actions data-cache validation succeeded. Scheduled refresh workflows are not implemented yet.

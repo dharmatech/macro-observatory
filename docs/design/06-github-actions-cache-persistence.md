@@ -83,11 +83,44 @@ The workflow prints:
 
 These logs should make cold builds visible and make cache restore/save performance measurable.
 
+## Validation Results
+
+Initial validation completed on June 28, 2026.
+
+Bootstrap run:
+
+```text
+run: 28315964925
+allow_cold_build: true
+cache restored: no
+cold build: yes
+build-site duration: 132 seconds
+data/cache size after build: 8.0 MB
+saved cache key: macro-observatory-data-cache-v1-Linux-28315964925
+result: success
+```
+
+Normal restore run:
+
+```text
+run: 28316049169
+allow_cold_build: false
+cache restored: yes
+matched cache key: macro-observatory-data-cache-v1-Linux-28315964925
+cold build: no
+build-site duration: 9 seconds
+data/cache size before build: 8.0 MB
+data/cache size after build: 8.0 MB
+saved cache key: macro-observatory-data-cache-v1-Linux-28316049169
+result: success
+```
+
+The deployed root page, both current dashboard pages, and both JSON data artifacts returned HTTP 200 after the cache-enabled deployment.
+
 ## Next Steps
 
 After this checkpoint:
 
-1. Manually run the Pages workflow once with `allow_cold_build=true` to bootstrap the first Actions cache snapshot.
-2. Manually run it again with `allow_cold_build=false` to confirm the cache restores and the build is incremental.
-3. If the cache behavior is reliable, consider re-enabling deploy-on-push.
-4. After deploy-on-push is safe, design scheduled refresh workflows.
+1. Keep the workflow manual-only briefly while cache behavior is observed.
+2. Re-enable deploy-on-push as a separate checkpoint if cache behavior remains reliable.
+3. After deploy-on-push is safe, design scheduled refresh workflows.
