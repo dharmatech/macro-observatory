@@ -1,6 +1,6 @@
 # Scheduled Refresh Policy
 
-Status: proposed
+Status: partially implemented
 
 This design note defines the initial scheduled data-refresh policy for Macro Observatory on GitHub Actions.
 
@@ -106,11 +106,11 @@ on:
 
 The workflow can map `github.event.schedule` or `github.event.inputs.refresh_group` to a list of source dataset IDs.
 
-## Python CLI Support Needed
+## Python CLI Support
 
-Before implementing the workflow, `build-site` should support targeted source updates.
+`build-site` supports targeted source updates. This is the host-neutral command layer the scheduled workflow will use.
 
-Proposed command shape:
+Command shape:
 
 ```powershell
 uv run macro-observatory build-site --source-dataset nyfed_rrp
@@ -182,10 +182,10 @@ A failed scheduled run should fail loudly before source APIs are called if the c
 
 ## Next Implementation Checkpoint
 
+The targeted `build-site --source-dataset ...` checkpoint is implemented and locally validated with the `nyfed_rrp` source dataset.
+
 The next implementation checkpoint should be:
 
-1. add targeted source-update support to `build-site`,
-2. test that targeted mode updates only selected source datasets,
-3. add `scheduled-refresh.yml` with the three initial refresh groups,
-4. manually dispatch each refresh group once to validate behavior,
-5. document the validation results.
+1. add `scheduled-refresh.yml` with the three initial refresh groups,
+2. manually dispatch each refresh group once to validate behavior,
+3. document the validation results.

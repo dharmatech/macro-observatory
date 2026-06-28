@@ -51,12 +51,13 @@ Current implementation priorities:
 - Derived TGA Explorer dataset: `treasury_dts_deposits_withdrawals_operating_cash_explorer`.
 - TGA Explorer published browser artifacts under `site/data/`.
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
-- Aggregate static-site build command via `build-site`.
+- Aggregate static-site build command via `build-site`, including targeted source-update mode.
 - GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
 - GitHub Actions data-cache persistence for `data/cache/` with explicit cold-build guardrail.
 - Push-triggered cache-only GitHub Pages deployment via `build-site --from-cache`.
+- Targeted source-update support via repeated `build-site --source-dataset ...` flags.
 
-The TGA Explorer page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, and push-triggered cache-only deployment checkpoint are complete. Scheduled data refresh is still separate future work.
+The TGA Explorer page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, push-triggered cache-only deployment checkpoint, and targeted source-update checkpoint are complete. Scheduled data refresh workflow implementation is still separate future work.
 
 ## Implemented Architecture
 
@@ -74,7 +75,7 @@ Current package files:
 - `src/macro_observatory/registry.py`: dataset registry for source and derived datasets.
 - `src/macro_observatory/data.py`: user-facing `load_dataset(...)` helper.
 - `src/macro_observatory/server.py`: local static-site server helper for `serve-site`.
-- `src/macro_observatory/site_build.py`: aggregate static-site build orchestration for deployment artifacts, including cache-only rebuild mode.
+- `src/macro_observatory/site_build.py`: aggregate static-site build orchestration for deployment artifacts, including cache-only rebuild mode and targeted source-update mode.
 - `src/macro_observatory/cli.py`: CLI commands for datasets, update, build-derived, publish, build-site, storage-report, serve-site, info, show, and export.
 
 Current static-site files:
@@ -176,6 +177,9 @@ Build all current static-site artifacts:
 uv run macro-observatory build-site
 uv run macro-observatory build-site --require-fred-api-key
 uv run macro-observatory build-site --from-cache
+uv run macro-observatory build-site --source-dataset nyfed_rrp
+uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```
 
 Serve the static site locally:
@@ -375,13 +379,19 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is implementing targeted source updates for scheduled refresh, following `docs/design/07-scheduled-refresh-policy.md`.
+The next likely checkpoint is implementing `.github/workflows/scheduled-refresh.yml`, following `docs/design/07-scheduled-refresh-policy.md`.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
 Push-triggered cache-only validation completed on June 28, 2026. Push run `28316672934` restored cache key `macro-observatory-data-cache-v1-Linux-28316049169`, ran `build-site --from-cache`, updated `0` source datasets, completed the build in 8 seconds, skipped secret validation, skipped cache saving, deployed successfully, and returned HTTP 200 for the root page, both current dashboard pages, and sampled JSON data artifacts.
 
-Deploy-on-push is re-enabled as a cache-only path. Push runs restore the existing Actions data cache, run `build-site --from-cache`, deploy `site/`, and skip source API updates and cache saving. Manual runs remain the only current path that refreshes source APIs and saves a new data-cache snapshot.
+Deploy-on-push is re-enabled as a cache-only path. Push runs restore the existing Actions data cache, run `build-site --from-cache`, deploy `site/`, and skip source API updates and cache saving.
+
+Targeted source-update mode is implemented. `build-site --source-dataset ...` validates the full current source cache first, updates only selected source datasets, rebuilds all derived and browser artifacts, and rejects `--from-cache` conflicts, derived dataset IDs, and unknown dataset IDs.
+
+Local targeted validation completed on June 28, 2026. `uv run macro-observatory build-site --source-dataset nyfed_rrp` ran successfully, reported `source update mode: targeted`, selected `nyfed_rrp`, updated `1` source dataset, rebuilt `3` derived datasets, and published `2` browser artifacts.
+
+Manual runs remain the only current GitHub Actions path that refreshes source APIs and saves a new data-cache snapshot. Scheduled refresh workflows are designed but not implemented yet.
 
 
 ## Known Open Questions

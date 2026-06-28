@@ -466,10 +466,23 @@ uv run macro-observatory build-site --from-cache
 
 This mode validates that all current source cache and metadata files exist, rebuilds derived caches and browser artifacts, and fails before any source API update path if a required source cache file is missing. The push-triggered GitHub Pages workflow uses this mode.
 
+Update selected source caches and then rebuild all current derived caches and browser artifacts:
+
+```powershell
+uv run macro-observatory build-site --source-dataset nyfed_rrp
+uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
+```
+
+Targeted source-update mode validates that all current source cache and metadata files exist before it updates anything. It updates only the selected source datasets, rebuilds every current derived dataset, republishes every current browser artifact, and writes `site/.nojekyll`.
+
+`--source-dataset` may be repeated. Duplicate values are ignored after the first occurrence. `--source-dataset` cannot be combined with `--from-cache`.
+
 Use a different static-site output directory when needed:
 
 ```powershell
 uv run macro-observatory build-site --site-dir scratch-site
+uv run macro-observatory build-site --source-dataset nyfed_rrp --site-dir scratch-site
 ```
 
 ## GitHub Pages Deployment
