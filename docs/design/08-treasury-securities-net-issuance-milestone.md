@@ -265,6 +265,14 @@ YE       181
 
 The page uses compact JSON `split` orientation, decodes the artifact once, and filters by frequency and security type in JavaScript. It sends only non-zero `net_issuance` points to Plotly so daily mode remains practical while the artifact and CSV preserve all rows.
 
+The page also supports first-pass shareable view state through the URL hash. The `Copy Link` button records the current grouping, checked security types, x-axis range, and y-axis range in a `v=1` hash such as:
+
+```text
+#v=1&freq=ME&types=Bill&x0=2020-03-01&x1=2021-12-31&y0=-600&y1=900
+```
+
+The first version intentionally does not persist Plotly legend-only visibility, expanded chart mode, hover state, or range-selector button state. The left-side security-type checkboxes are the canonical shareable series state.
+
 Implemented page paths:
 
 ```text
@@ -358,7 +366,7 @@ Completed. Macro Observatory can publish JSON, CSV, and metadata companions for 
 
 ### 4. Page Checkpoint
 
-Completed. The static site can show the Treasury Securities Net Issuance page, render the Plotly bar chart, switch grouping among `D`, `W`, `ME`, `QE`, and `YE`, default to `ME`, show security-type toggles, show a `Today` marker, report subtle timing diagnostics, use shared chart expand/restore behavior, and link from the site index.
+Completed. The static site can show the Treasury Securities Net Issuance page, render the Plotly bar chart, switch grouping among `D`, `W`, `ME`, `QE`, and `YE`, default to `ME`, show security-type toggles, show a `Today` marker, report subtle timing diagnostics, use shared chart expand/restore behavior, copy shareable view-state links, restore `v=1` hash state on load, and link from the site index.
 
 ### 5. Aggregate Build And Actions Cache Checkpoint
 

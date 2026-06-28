@@ -4,6 +4,7 @@
   const DATA_URL = "../../data/treasury-securities-net-issuance.json";
   const METADATA_URL = "../../data/treasury-securities-net-issuance-metadata.json";
   const DEFAULT_FREQUENCY = "ME";
+  const SHARE_STATE_VERSION = "1";
   const USD_BILLION = 1000000000;
   const SECURITY_ORDER = ["Bill", "Note", "Bond"];
   const FREQUENCY_LABELS = {
@@ -19,6 +20,7 @@
     Bond: "#c33a2b"
   };
   const FILTER_DEBOUNCE_MS = 80;
+  const COPY_FEEDBACK_MS = 2200;
 
   let metadata = null;
   let rows = [];
@@ -26,6 +28,8 @@
   let securityTypes = [];
   let applyTimer = null;
   let renderSequence = 0;
+  let pendingAxisRanges = null;
+  let copyFeedbackTimer = null;
   const timings = {
     fetch: null,
     parse: null,
@@ -95,6 +99,18 @@
       }
       return left.localeCompare(right);
     });
+  }
+
+  function canonicalSecurityTypes(rawTypes) {
+    const byLower = new Map(securityTypes.map((value) => [value.toLowerCase(), value]));
+    const selected = new Set();
+    rawTypes.forEach((rawType) => {
+      const key = String(rawType || "").trim().toLowerCase();
+      if (byLower.has(key)) {
+        selected.add(byLower.get(key));
+      }
+    });
+    return orderedSecurityTypes(selected);
   }
 
   function sourceRows(metadataPayload) {
@@ -186,18 +202,23 @@
     return {
       frequency: element("frequency-select"),
       reset: element("reset-button"),
+      copyLink: element("treasury-securities-copy-link"),
       securityTypeInputs: Array.from(
         element("security-type-list").querySelectorAll("input[type='checkbox']")
       )
     };
   }
 
-  function selectedSecurityTypes(ui) {
-    return new Set(
+  function selectedSecurityTypeList(ui) {
+    return orderedSecurityTypes(
       ui.securityTypeInputs
         .filter((input) => input.checked)
         .map((input) => input.dataset.securityType)
     );
+  }
+
+  function selectedSecurityTypes(ui) {
+    return new Set(selectedSecurityTypeList(ui));
   }
 
   function resetControls() {
@@ -208,11 +229,106 @@
     });
   }
 
+  function validAxisText(value) {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    const text = String(value).trim();
+    if (!text || text.length > 80 || /[<>\n\r]/.test(text)) {
+      return null;
+    }
+    return text;
+  }
+
+  function validXAxisText(value) {
+    const text = validAxisText(value);
+    if (text === null) {
+      return null;
+    }
+    return Number.isNaN(Date.parse(text)) ? null : text;
+  }
+
+  function validAxisNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function parseSharedState() {
+    if (!window.location.hash || window.location.hash.length <= 1) {
+      return null;
+    }
+
+    try {
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      if (params.get("v") !== SHARE_STATE_VERSION) {
+        return null;
+      }
+
+      const state = {
+        frequency: validAxisText(params.get("freq")),
+        rawTypes: null,
+        hasTypes: params.has("types"),
+        axisRanges: {}
+      };
+
+      if (state.hasTypes) {
+        const rawTypes = params.get("types") || "";
+        state.rawTypes = rawTypes === "" ? [] : rawTypes.split(",");
+      }
+
+      const x0 = validXAxisText(params.get("x0"));
+      const x1 = validXAxisText(params.get("x1"));
+      if (x0 !== null && x1 !== null && x0 !== x1) {
+        state.axisRanges.x = [x0, x1];
+      }
+
+      const y0 = validAxisNumber(params.get("y0"));
+      const y1 = validAxisNumber(params.get("y1"));
+      if (y0 !== null && y1 !== null && y0 !== y1) {
+        state.axisRanges.y = [y0, y1];
+      }
+
+      return state;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function applySharedControlState(state) {
+    if (!state) {
+      return;
+    }
+
+    const ui = controls();
+    const allowedFrequencies = new Set(Array.from(ui.frequency.options).map((option) => option.value));
+    if (state.frequency && allowedFrequencies.has(state.frequency)) {
+      ui.frequency.value = state.frequency;
+    }
+
+    if (state.hasTypes) {
+      const validTypes = canonicalSecurityTypes(state.rawTypes || []);
+      if ((state.rawTypes || []).length === 0 || validTypes.length > 0) {
+        const validTypeSet = new Set(validTypes);
+        ui.securityTypeInputs.forEach((input) => {
+          input.checked = validTypeSet.has(input.dataset.securityType);
+        });
+      }
+    }
+
+    if (
+      state.axisRanges
+      && (Array.isArray(state.axisRanges.x) || Array.isArray(state.axisRanges.y))
+    ) {
+      pendingAxisRanges = state.axisRanges;
+    }
+  }
+
   function filterRows() {
     const ui = controls();
     const started = performance.now();
     const frequency = ui.frequency.value;
     const selectedTypes = selectedSecurityTypes(ui);
+    const selectedTypeList = selectedSecurityTypeList(ui);
     const filtered = [];
     let minDate = null;
     let maxDate = null;
@@ -241,7 +357,7 @@
     }
 
     timings.filter = performance.now() - started;
-    return { frequency, rows: filtered, minDate, maxDate };
+    return { frequency, rows: filtered, minDate, maxDate, selectedTypeList };
   }
 
   function renderDiagnostics(pointCount) {
@@ -271,6 +387,16 @@
     }
   }
 
+  function selectedTypeLabel(selectedTypeList) {
+    if (selectedTypeList.length === 0) {
+      return "No security types";
+    }
+    if (selectedTypeList.length === securityTypes.length) {
+      return "All security types";
+    }
+    return selectedTypeList.join(", ");
+  }
+
   function updateFilterSummary(filtered) {
     const range = metadata.date_range || {};
     const labelMin = filtered.minDate || range.min;
@@ -281,7 +407,7 @@
     setText("control-point-count", `${window.MacroObservatory.formatInteger(pointCount)} points`);
     setText(
       "filtered-range-label",
-      `${formatFrequency(filtered.frequency)}, ${window.MacroObservatory.formatInteger(pointCount)} non-zero points, ${window.MacroObservatory.formatDate(labelMin)} to ${window.MacroObservatory.formatDate(labelMax)}`
+      `${formatFrequency(filtered.frequency)}, ${selectedTypeLabel(filtered.selectedTypeList)}, ${window.MacroObservatory.formatInteger(pointCount)} non-zero points, ${window.MacroObservatory.formatDate(labelMin)} to ${window.MacroObservatory.formatDate(labelMax)}`
     );
   }
 
@@ -311,6 +437,7 @@
         customdata: group.customdata,
         name: securityType,
         type: "bar",
+        showlegend: true,
         marker: {
           color: SECURITY_COLORS[securityType] || "#6d45a8",
           line: {
@@ -388,6 +515,7 @@
         family: "Inter, Segoe UI, sans-serif",
         color: "#172033"
       },
+      showlegend: true,
       legend: {
         orientation: "h",
         y: 1.08,
@@ -435,6 +563,28 @@
     };
   }
 
+  async function applyPendingAxisRanges() {
+    if (!pendingAxisRanges || !window.Plotly) {
+      pendingAxisRanges = null;
+      return;
+    }
+
+    const update = {};
+    if (Array.isArray(pendingAxisRanges.x)) {
+      update["xaxis.range[0]"] = pendingAxisRanges.x[0];
+      update["xaxis.range[1]"] = pendingAxisRanges.x[1];
+    }
+    if (Array.isArray(pendingAxisRanges.y)) {
+      update["yaxis.range[0]"] = pendingAxisRanges.y[0];
+      update["yaxis.range[1]"] = pendingAxisRanges.y[1];
+    }
+    pendingAxisRanges = null;
+
+    if (Object.keys(update).length > 0) {
+      await window.Plotly.relayout("treasury-securities-chart", update);
+    }
+  }
+
   async function renderChart(filtered, sequence) {
     if (!window.Plotly) {
       throw new Error("Plotly did not load. Check the CDN connection and reload the page.");
@@ -450,6 +600,10 @@
       chartLayout(filtered),
       chartConfig()
     );
+    if (sequence !== renderSequence) {
+      return;
+    }
+    await applyPendingAxisRanges();
     if (sequence !== renderSequence) {
       return;
     }
@@ -470,6 +624,7 @@
     timings.render = null;
 
     if (filtered.rows.length === 0) {
+      pendingAxisRanges = null;
       purgeChart();
       showGuardrail("No non-zero net issuance points match the current controls.");
       renderDiagnostics(0);
@@ -477,6 +632,7 @@
     }
 
     if (filtered.rows.length > maxPoints) {
+      pendingAxisRanges = null;
       purgeChart();
       showGuardrail(
         `Filtered result has ${window.MacroObservatory.formatInteger(filtered.rows.length)} chart points. Narrow controls to ${window.MacroObservatory.formatInteger(maxPoints)} points or fewer before rendering.`
@@ -501,18 +657,119 @@
     }, FILTER_DEBOUNCE_MS);
   }
 
+  function currentChartAxisRanges() {
+    const chart = element("treasury-securities-chart");
+    const fullLayout = chart._fullLayout || {};
+    const ranges = {};
+    if (fullLayout.xaxis && Array.isArray(fullLayout.xaxis.range)) {
+      ranges.x = [String(fullLayout.xaxis.range[0]), String(fullLayout.xaxis.range[1])];
+    }
+    if (fullLayout.yaxis && Array.isArray(fullLayout.yaxis.range)) {
+      const y0 = Number(fullLayout.yaxis.range[0]);
+      const y1 = Number(fullLayout.yaxis.range[1]);
+      if (Number.isFinite(y0) && Number.isFinite(y1) && y0 !== y1) {
+        ranges.y = [y0, y1];
+      }
+    }
+    return ranges;
+  }
+
+  function axisNumberForUrl(value) {
+    return String(Number(Number(value).toPrecision(12)));
+  }
+
+  function buildShareUrl() {
+    const ui = controls();
+    const params = new URLSearchParams();
+    const ranges = currentChartAxisRanges();
+    params.set("v", SHARE_STATE_VERSION);
+    params.set("freq", ui.frequency.value);
+    params.set("types", selectedSecurityTypeList(ui).join(","));
+    if (Array.isArray(ranges.x)) {
+      params.set("x0", ranges.x[0]);
+      params.set("x1", ranges.x[1]);
+    }
+    if (Array.isArray(ranges.y)) {
+      params.set("y0", axisNumberForUrl(ranges.y[0]));
+      params.set("y1", axisNumberForUrl(ranges.y[1]));
+    }
+
+    const url = new URL(window.location.href);
+    url.hash = params.toString();
+    return url.toString();
+  }
+
+  function setCopyFeedback(message) {
+    const ui = controls();
+    const status = element("copy-link-status");
+    if (copyFeedbackTimer !== null) {
+      window.clearTimeout(copyFeedbackTimer);
+    }
+    ui.copyLink.textContent = message === "Copied" ? "Copied" : "Copy Link";
+    status.textContent = message;
+    copyFeedbackTimer = window.setTimeout(() => {
+      ui.copyLink.textContent = "Copy Link";
+      status.textContent = "";
+      copyFeedbackTimer = null;
+    }, COPY_FEEDBACK_MS);
+  }
+
+  function fallbackCopy(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "fixed";
+    textArea.style.left = "-9999px";
+    document.body.appendChild(textArea);
+    textArea.select();
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch (_error) {
+      copied = false;
+    }
+    document.body.removeChild(textArea);
+    return copied;
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (_error) {
+        return fallbackCopy(text);
+      }
+    }
+    return fallbackCopy(text);
+  }
+
+  async function copyShareLink() {
+    const shareUrl = buildShareUrl();
+    window.history.replaceState(null, "", shareUrl);
+    const copied = await copyText(shareUrl);
+    setCopyFeedback(copied ? "Copied" : "Link in address bar");
+  }
+
   function setupControls() {
     renderFrequencyOptions();
     renderSecurityTypeControls();
     resetControls();
+    applySharedControlState(parseSharedState());
     const ui = controls();
     ui.frequency.addEventListener("change", scheduleApplyFilters);
     ui.securityTypeInputs.forEach((input) => {
       input.addEventListener("change", scheduleApplyFilters);
     });
     ui.reset.addEventListener("click", () => {
+      pendingAxisRanges = null;
       resetControls();
       scheduleApplyFilters();
+    });
+    ui.copyLink.addEventListener("click", () => {
+      copyShareLink().catch((error) => {
+        window.MacroObservatory.showError(error.message);
+      });
     });
   }
 

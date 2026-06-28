@@ -403,7 +403,7 @@ site/data/treasury-securities-net-issuance.csv
 site/data/treasury-securities-net-issuance-metadata.json
 ```
 
-The Treasury Securities Net Issuance JSON artifact uses compact JSON `split` orientation and is currently about 4.0 MB. The page defaults to `ME`, filters by frequency and security type in JavaScript, sends only non-zero `net_issuance` points to Plotly, shows a visible `Today` marker, reports timing diagnostics, and supports shared viewport-expanded chart mode.
+The Treasury Securities Net Issuance JSON artifact uses compact JSON `split` orientation and is currently about 4.0 MB. The page defaults to `ME`, filters by frequency and security type in JavaScript, sends only non-zero `net_issuance` points to Plotly, always shows the Plotly legend for rendered traces, shows a visible `Today` marker, reports timing diagnostics, supports shared viewport-expanded chart mode, and supports `Copy Link` share URLs that persist grouping, checked security types, and x/y axis ranges in the URL hash.
 
 Static page:
 
@@ -556,4 +556,4 @@ Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dis
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
 - Scheduled refresh workflow timing should be validated with live runs on the next market day. The workflow uses UTC cron entries with Pacific/Eastern comments; daylight-saving behavior should be reviewed after observing several weeks of runs.
-- Treasury Securities Net Issuance now shows a visible `Today` marker. The remaining Treasury securities workflow gap is scheduled auctions refresh timing.
+- Treasury Securities Net Issuance now shows a visible `Today` marker and supports shareable hash links for grouping, checked security types, and x/y axis ranges. The remaining Treasury securities workflow gap is scheduled auctions refresh timing.
