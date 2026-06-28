@@ -472,7 +472,7 @@ The repository deploys GitHub Pages with:
 .github/workflows/pages.yml
 ```
 
-The workflow runs on pushes to `main` and can also be started manually from the GitHub Actions tab.
+The workflow is started manually from the GitHub Actions tab. It does not run automatically on pushes to `main` while remote source-cache persistence is unresolved.
 
 The repository must have this GitHub Actions repository secret configured:
 
@@ -490,7 +490,7 @@ GitHub Actions
 
 Do not use branch-folder publishing for this project. `site/data/` is generated output and is ignored by git, so the workflow uploads the generated `site/` directory as a Pages artifact instead.
 
-To inspect the generated artifact locally before pushing:
+To inspect the generated artifact locally before manually deploying:
 
 ```powershell
 uv run macro-observatory build-site --require-fred-api-key

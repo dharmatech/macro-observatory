@@ -2,7 +2,7 @@
 
 Status: implemented
 
-This checkpoint publishes the current static site to GitHub Pages without adding scheduled data refresh yet.
+This checkpoint publishes the current static site to GitHub Pages without adding scheduled data refresh yet. Deployment is manual-only while remote source-cache persistence is unresolved.
 
 The deployment intentionally keeps generated data out of git:
 
@@ -17,8 +17,8 @@ Those paths remain ignored. The GitHub Actions workflow regenerates them during 
 
 Included:
 
-- build the current static site on push to `main`,
-- allow manual deployment with `workflow_dispatch`,
+- build the current static site only when manually dispatched,
+- avoid automatic push deployment while GitHub-hosted runner storage is ephemeral,
 - require `FRED_API_KEY` for the official GitHub Pages deployment,
 - regenerate source caches, derived datasets, and browser artifacts during the workflow,
 - publish the generated `site/` directory through the GitHub Pages Actions deployment flow,
@@ -46,9 +46,10 @@ The Pages workflow lives at:
 It runs on:
 
 ```text
-push to main
 manual workflow_dispatch
 ```
+
+Automatic push deployment is intentionally disabled for now. The current workflow rebuilds `data/cache/` from public APIs on a fresh GitHub-hosted runner, so running it on every push would create unnecessary cold fetches.
 
 The build job:
 

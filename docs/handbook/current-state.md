@@ -50,7 +50,7 @@ Current implementation priorities:
 - TGA Explorer published browser artifacts under `site/data/`.
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
 - Aggregate static-site build command via `build-site`.
-- GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
+- Manual-only GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
 
 The TGA Explorer page UI checkpoint and initial GitHub Pages deployment checkpoint are complete. Scheduled data refresh is still separate future work.
 
@@ -83,7 +83,7 @@ Current static-site files:
 - `site/assets/js/fed-net-liquidity.js`
 - `site/assets/js/tga-explorer.js`
 
-Generated data under `data/cache/` and `site/data/` is ignored by git. GitHub Pages deployment regenerates those paths in Actions and uploads `site/` as the Pages artifact.
+Generated data under `data/cache/` and `site/data/` is ignored by git. Manual GitHub Pages deployment regenerates those paths in Actions and uploads `site/` as the Pages artifact.
 
 Shared static behavior:
 
@@ -370,11 +370,11 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is scheduled data refresh in GitHub Actions.
+The next likely checkpoint is remote source-cache persistence, followed by scheduled data refresh in GitHub Actions.
 
-That work should stay separate from the initial Pages deployment and should define dataset-specific schedules, release-time buffers, short retry/backoff behavior, idempotent repeated runs, and freshness metadata shown subtly in the site UI.
+That work should stay separate from the initial Pages deployment. First decide how remote source caches persist across runs; then define dataset-specific schedules, release-time buffers, short retry/backoff behavior, idempotent repeated runs, and freshness metadata shown subtly in the site UI.
 
-Before that checkpoint, verify the first Pages deployment from the GitHub Actions tab and confirm the published site loads both current pages.
+The first Pages deployment has been verified. Future Pages runs should be manually dispatched only when an intentional cold rebuild is acceptable.
 
 
 ## Known Open Questions

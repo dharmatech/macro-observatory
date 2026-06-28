@@ -1,9 +1,7 @@
 name: Deploy GitHub Pages
 
 on:
-  push:
-    branches:
-      - main
+  # Manual only until remote source-cache persistence is designed.
   workflow_dispatch:
 
 permissions:
