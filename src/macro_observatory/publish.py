@@ -24,6 +24,8 @@ TGA_EXPLORER_DATASET_ID = "treasury_dts_deposits_withdrawals_operating_cash_expl
 TGA_EXPLORER_ARTIFACT_STEM = "tga-explorer"
 TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID = "treasury_securities_net_issuance"
 TREASURY_SECURITIES_NET_ISSUANCE_ARTIFACT_STEM = "treasury-securities-net-issuance"
+FRED_SP500_DATASET_ID = "fred_sp500"
+FRED_SP500_ARTIFACT_STEM = "sp500"
 TGA_EXPLORER_RENDER_GUARDRAIL_ROWS = 10_000
 TREASURY_SECURITIES_RENDER_GUARDRAIL_POINTS = 25_000
 FED_NET_LIQUIDITY_COLUMNS = (
@@ -55,6 +57,7 @@ TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS = (
     "maturing",
     "net_issuance",
 )
+FRED_SP500_COLUMNS = ("date", "value")
 FED_NET_LIQUIDITY_SERIES: dict[str, dict[str, str]] = {
     "walcl": {"label": "WALCL", "units": "U.S. dollars", "role": "component"},
     "rrp": {"label": "RRP", "units": "U.S. dollars", "role": "component"},
@@ -74,6 +77,10 @@ TREASURY_SECURITIES_NET_ISSUANCE_SERIES: dict[str, dict[str, str]] = {
         "units": "U.S. dollars",
         "role": "primary_metric",
     },
+}
+
+FRED_SP500_SERIES: dict[str, dict[str, str]] = {
+    "value": {"label": "S&P 500", "units": "index points", "role": "market_context"},
 }
 
 TGA_EXPLORER_SERIES: dict[str, dict[str, str]] = {
@@ -169,6 +176,31 @@ def _tga_explorer_metadata_extra(
     return payload
 
 
+def _fred_sp500_metadata_extra(
+    published_df: pd.DataFrame,
+    metadata: DatasetMetadata,
+) -> dict[str, Any]:
+    source_metadata = metadata.source_metadata or {}
+    payload: dict[str, Any] = {
+        "series_id": source_metadata.get("series_id", "SP500"),
+        "source_url": source_metadata.get("source_url", "https://fred.stlouisfed.org/series/SP500"),
+        "source_dataset_ids": [metadata.dataset_id],
+        "date_column": "date",
+        "value_column": "value",
+        "market_context_role": "daily_price_overlay",
+        "data_policy": (
+            "Published as an independent daily market-context series, not merged into "
+            "Treasury Securities Net Issuance rows. The chart overlay should use a "
+            "secondary y-axis and stop at the latest available SP500 observation."
+        ),
+        "rights_note": (
+            "FRED's SP500 page identifies third-party copyright/licensing caveats. "
+            "Review source terms before redistribution or commercial use."
+        ),
+    }
+    return payload
+
+
 def _treasury_securities_net_issuance_metadata_extra(
     published_df: pd.DataFrame,
     metadata: DatasetMetadata,
@@ -225,6 +257,14 @@ PUBLISH_CONFIGS = {
         columns=TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS,
         series=TREASURY_SECURITIES_NET_ISSUANCE_SERIES,
         metadata_extra_builder=_treasury_securities_net_issuance_metadata_extra,
+        json_orientation="split",
+    ),
+    FRED_SP500_DATASET_ID: PublishConfig(
+        dataset_id=FRED_SP500_DATASET_ID,
+        artifact_stem=FRED_SP500_ARTIFACT_STEM,
+        columns=FRED_SP500_COLUMNS,
+        series=FRED_SP500_SERIES,
+        metadata_extra_builder=_fred_sp500_metadata_extra,
         json_orientation="split",
     ),
 }

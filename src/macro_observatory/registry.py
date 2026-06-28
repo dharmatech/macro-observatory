@@ -18,6 +18,7 @@ from macro_observatory.sources.treasury import (
 
 DEFAULT_DATA_DIR = Path("data")
 FRED_MILLIONS_USD = "millions of U.S. dollars"
+FRED_INDEX_POINTS = "index points"
 TREASURY_MILLIONS_USD = "millions of U.S. dollars"
 US_DOLLARS = "U.S. dollars"
 
@@ -297,6 +298,15 @@ def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
             title="Earnings Remittances Due to the U.S. Treasury (RESPPLLOPNWW)",
             source_dir=source_dir,
             metadata_dir=metadata_dir,
+        ),
+        _fred_series_spec(
+            dataset_id="fred_sp500",
+            series_id="SP500",
+            title="S&P 500 Index (SP500)",
+            source_dir=source_dir,
+            metadata_dir=metadata_dir,
+            source_units=FRED_INDEX_POINTS,
+            display_units=FRED_INDEX_POINTS,
         ),
         _nyfed_rrp_spec(source_dir, metadata_dir),
         _treasury_operating_cash_balance_spec(source_dir, metadata_dir),

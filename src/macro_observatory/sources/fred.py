@@ -30,6 +30,15 @@ class FredSeriesAdapter:
         self.session = session or requests.Session()
         self.timeout = timeout
 
+    def source_metadata(self) -> dict[str, str]:
+        """Return stable provenance for this FRED series."""
+        return {
+            "series_id": self.series_id,
+            "source_url": f"https://fred.stlouisfed.org/series/{self.series_id}",
+            "api_url": self.api_url,
+            "csv_url": self.csv_url,
+        }
+
     def fetch(self, start_date: date | None) -> pd.DataFrame:
         """Fetch series observations from FRED.
 

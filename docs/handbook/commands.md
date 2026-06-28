@@ -72,6 +72,7 @@ Current expected output includes:
 ```text
 fred_walcl                                                       Federal Reserve Balance Sheet Assets (WALCL)
 fred_resppllopnww                                                Earnings Remittances Due to the U.S. Treasury (RESPPLLOPNWW)
+fred_sp500                                                       S&P 500 Index (SP500)
 nyfed_rrp                                                        New York Fed Reverse Repo Operations (RRP)
 treasury_dts_operating_cash_balance                              Treasury Daily Treasury Statement Operating Cash Balance
 treasury_dts_deposits_withdrawals_operating_cash                 Treasury Daily Treasury Statement Deposits and Withdrawals of Operating Cash
@@ -116,6 +117,25 @@ Current local cache paths:
 ```text
 data/cache/sources/fred_resppllopnww.parquet
 data/cache/metadata/fred_resppllopnww.json
+```
+
+These cache files are ignored by git.
+
+## Update FRED SP500
+
+Run an incremental update for the local S&P 500 cache:
+
+```powershell
+uv run macro-observatory update fred_sp500
+```
+
+This dataset is the FRED `SP500` series. It is published as a separate market-context artifact for future chart overlays and is not merged into Treasury Securities Net Issuance rows.
+
+Current local cache paths:
+
+```text
+data/cache/sources/fred_sp500.parquet
+data/cache/metadata/fred_sp500.json
 ```
 
 These cache files are ignored by git.
@@ -438,6 +458,45 @@ Use a different static-site output directory when needed:
 uv run macro-observatory publish treasury_securities_net_issuance --site-dir scratch-site
 ```
 
+## Publish SP500 Market Context Artifacts
+
+Publish browser-facing market-context artifacts from the FRED SP500 source cache:
+
+```powershell
+uv run macro-observatory publish fred_sp500
+```
+
+This command reads:
+
+```text
+data/cache/sources/fred_sp500.parquet
+data/cache/metadata/fred_sp500.json
+```
+
+and writes generated static-site artifacts:
+
+```text
+site/data/sp500.json
+site/data/sp500.csv
+site/data/sp500-metadata.json
+```
+
+The JSON artifact uses compact split orientation with `date` and `value` columns. It is intentionally independent from Treasury Securities Net Issuance rows so a later chart overlay can use a secondary y-axis without duplicating SP500 values across Treasury rows.
+
+`site/data/` is generated output and is ignored by git.
+
+If the source cache is missing, run this first:
+
+```powershell
+uv run macro-observatory update fred_sp500
+```
+
+Use a different static-site output directory when needed:
+
+```powershell
+uv run macro-observatory publish fred_sp500 --site-dir scratch-site
+```
+
 ## Publish TGA Explorer Artifacts
 
 Publish browser-facing artifacts from the derived TGA Explorer cache:
@@ -520,6 +579,13 @@ site/data/treasury-securities-net-issuance.json
 site/data/treasury-securities-net-issuance-metadata.json
 ```
 
+The SP500 market-context artifact is generated for a future Treasury Securities overlay, but no current page consumes it yet:
+
+```text
+site/data/sp500.json
+site/data/sp500-metadata.json
+```
+
 If the Fed Net Liquidity files are missing or stale, run this first:
 
 ```powershell
@@ -581,7 +647,7 @@ Update selected source caches and then rebuild all current derived caches and br
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
-uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --source-dataset fred_sp500 --require-fred-api-key
 ```
 
 Targeted source-update mode validates that all current source cache and metadata files exist before it updates anything. It updates only the selected source datasets, rebuilds every current derived dataset, republishes every current browser artifact, and writes `site/.nojekyll`.
@@ -703,6 +769,7 @@ treasury_daily  -> treasury_dts_operating_cash_balance
 
 fred_weekly     -> fred_walcl
                   fred_resppllopnww
+                  fred_sp500
                   55 21 * * 4    # 21:55 UTC Thursday, 2:55 PM PDT / 1:55 PM PST
 ```
 
@@ -727,7 +794,7 @@ Equivalent local commands for the three refresh groups:
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
-uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --source-dataset fred_sp500 --require-fred-api-key
 ```
 
 The scheduled workflow shares the `github-pages` concurrency group with `.github/workflows/pages.yml` and uses `cancel-in-progress: false`, so push deploys and scheduled source updates queue instead of canceling each other.
@@ -774,6 +841,7 @@ uv run macro-observatory storage-report --site-dir scratch-site
 ```powershell
 uv run macro-observatory info fred_walcl
 uv run macro-observatory info fred_resppllopnww
+uv run macro-observatory info fred_sp500
 uv run macro-observatory info nyfed_rrp
 uv run macro-observatory info treasury_dts_operating_cash_balance
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash
@@ -791,6 +859,7 @@ This prints the row count, date range, cache path, columns, and units recorded i
 ```powershell
 uv run macro-observatory show fred_walcl --rows 10
 uv run macro-observatory show fred_resppllopnww --rows 10
+uv run macro-observatory show fred_sp500 --rows 10
 uv run macro-observatory show nyfed_rrp --rows 10
 uv run macro-observatory show treasury_dts_operating_cash_balance --rows 10
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash --rows 10
@@ -821,6 +890,7 @@ Export to CSV:
 ```powershell
 uv run macro-observatory export fred_walcl --format csv --output exports/fred_walcl.csv
 uv run macro-observatory export fred_resppllopnww --format csv --output exports/fred_resppllopnww.csv
+uv run macro-observatory export fred_sp500 --format csv --output exports/fred_sp500.csv
 uv run macro-observatory export nyfed_rrp --format csv --output exports/nyfed_rrp.csv
 uv run macro-observatory export treasury_dts_operating_cash_balance --format csv --output exports/treasury_dts_operating_cash_balance.csv
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash --format csv --output exports/treasury_dts_deposits_withdrawals_operating_cash.csv
@@ -836,6 +906,7 @@ Export to Parquet:
 ```powershell
 uv run macro-observatory export fred_walcl --format parquet --output exports/fred_walcl.parquet
 uv run macro-observatory export fred_resppllopnww --format parquet --output exports/fred_resppllopnww.parquet
+uv run macro-observatory export fred_sp500 --format parquet --output exports/fred_sp500.parquet
 uv run macro-observatory export nyfed_rrp --format parquet --output exports/nyfed_rrp.parquet
 uv run macro-observatory export treasury_dts_operating_cash_balance --format parquet --output exports/treasury_dts_operating_cash_balance.parquet
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash --format parquet --output exports/treasury_dts_deposits_withdrawals_operating_cash.parquet
@@ -863,6 +934,7 @@ from macro_observatory.data import load_dataset
 
 df_walcl = load_dataset("fred_walcl")
 df_resp = load_dataset("fred_resppllopnww")
+df_sp500 = load_dataset("fred_sp500")
 df_rrp = load_dataset("nyfed_rrp")
 df_treasury_ocb = load_dataset("treasury_dts_operating_cash_balance")
 df_treasury_deposits_withdrawals = load_dataset("treasury_dts_deposits_withdrawals_operating_cash")
@@ -874,6 +946,7 @@ df_net_liquidity = load_dataset("fed_net_liquidity")
 
 df_walcl.tail()
 df_resp.tail()
+df_sp500.tail()
 df_rrp.tail()
 df_treasury_ocb.tail()
 df_treasury_deposits_withdrawals.tail()
@@ -913,6 +986,7 @@ Most commands default to `data/`. To test with a separate cache directory, use `
 ```powershell
 uv run macro-observatory --data-dir scratch-data update fred_walcl
 uv run macro-observatory --data-dir scratch-data update fred_resppllopnww
+uv run macro-observatory --data-dir scratch-data update fred_sp500
 uv run macro-observatory --data-dir scratch-data update nyfed_rrp
 uv run macro-observatory --data-dir scratch-data update treasury_dts_operating_cash_balance
 uv run macro-observatory --data-dir scratch-data update treasury_dts_deposits_withdrawals_operating_cash
@@ -924,6 +998,7 @@ uv run macro-observatory --data-dir scratch-data build-derived fed_net_liquidity
 uv run macro-observatory --data-dir scratch-data publish fed_net_liquidity --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data publish treasury_dts_deposits_withdrawals_operating_cash_explorer --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data publish treasury_securities_net_issuance --site-dir scratch-site
+uv run macro-observatory --data-dir scratch-data publish fred_sp500 --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data storage-report --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data info nyfed_rrp
 uv run macro-observatory --data-dir scratch-data info treasury_dts_operating_cash_balance

@@ -17,6 +17,7 @@ from macro_observatory.registry import DEFAULT_DATA_DIR, get_dataset_spec
 SOURCE_DATASET_IDS = (
     "fred_walcl",
     "fred_resppllopnww",
+    "fred_sp500",
     "nyfed_rrp",
     "treasury_dts_operating_cash_balance",
     "treasury_dts_deposits_withdrawals_operating_cash",
@@ -32,6 +33,7 @@ PUBLISH_DATASET_IDS = (
     "fed_net_liquidity",
     "treasury_dts_deposits_withdrawals_operating_cash_explorer",
     "treasury_securities_net_issuance",
+    "fred_sp500",
 )
 SourceUpdateMode = Literal["update", "targeted", "from-cache"]
 

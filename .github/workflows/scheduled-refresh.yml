@@ -71,8 +71,8 @@ jobs:
                   ;;
                 "55 21 * * 4")
                   refresh_group="fred_weekly"
-                  source_datasets="fred_walcl fred_resppllopnww"
-                  build_args="--source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key"
+                  source_datasets="fred_walcl fred_resppllopnww fred_sp500"
+                  build_args="--source-dataset fred_walcl --source-dataset fred_resppllopnww --source-dataset fred_sp500 --require-fred-api-key"
                   requires_fred_api_key="true"
                   ;;
                 *)
@@ -97,8 +97,8 @@ jobs:
                   ;;
                 fred_weekly)
                   refresh_group="fred_weekly"
-                  source_datasets="fred_walcl fred_resppllopnww"
-                  build_args="--source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key"
+                  source_datasets="fred_walcl fred_resppllopnww fred_sp500"
+                  build_args="--source-dataset fred_walcl --source-dataset fred_resppllopnww --source-dataset fred_sp500 --require-fred-api-key"
                   requires_fred_api_key="true"
                   ;;
                 *)

@@ -199,6 +199,50 @@ def test_publish_rejects_dataset_without_publish_config(tmp_path: Path) -> None:
     assert "does not have a publish config" in str(exc_info.value)
     assert "fed_net_liquidity" in str(exc_info.value)
 
+def test_publish_sp500_writes_market_context_artifacts(tmp_path: Path) -> None:
+    replace_dataset(
+        get_dataset_spec("fred_sp500", tmp_path),
+        fred_rows("SP500", [("2024-01-02", 4700.1), ("2024-01-03", 4725.2)]),
+        source_metadata={
+            "series_id": "SP500",
+            "source_url": "https://fred.stlouisfed.org/series/SP500",
+        },
+    )
+
+    result = publish_dataset("fred_sp500", data_dir=tmp_path, site_dir=tmp_path / "site")
+
+    assert result.dataset_id == "fred_sp500"
+    assert result.rows_published == 2
+    assert result.output_dir == tmp_path / "site" / "data"
+    assert result.json_path == tmp_path / "site" / "data" / "sp500.json"
+    assert result.csv_path == tmp_path / "site" / "data" / "sp500.csv"
+    assert result.metadata_path == tmp_path / "site" / "data" / "sp500-metadata.json"
+
+    with result.json_path.open("r", encoding="utf-8") as f:
+        payload = json.load(f)
+    assert payload == {
+        "columns": ["date", "value"],
+        "data": [["2024-01-02", 4700.1], ["2024-01-03", 4725.2]],
+    }
+
+    csv_df = pd.read_csv(result.csv_path)
+    assert csv_df.columns.tolist() == ["date", "value"]
+    assert csv_df.loc[1, "value"] == 4725.2
+
+    with result.metadata_path.open("r", encoding="utf-8") as f:
+        metadata = json.load(f)
+    assert metadata["schema_version"] == 1
+    assert metadata["dataset_id"] == "fred_sp500"
+    assert metadata["row_count"] == 2
+    assert metadata["date_range"] == {"min": "2024-01-02", "max": "2024-01-03"}
+    assert metadata["json_orientation"] == "split"
+    assert metadata["source_dataset_ids"] == ["fred_sp500"]
+    assert metadata["series_id"] == "SP500"
+    assert metadata["source_url"] == "https://fred.stlouisfed.org/series/SP500"
+    assert metadata["series"]["value"]["role"] == "market_context"
+    assert "not merged" in metadata["data_policy"]
+    assert "copyright" in metadata["rights_note"]
+
 
 def test_publish_fed_net_liquidity_writes_browser_artifacts(tmp_path: Path) -> None:
     write_fed_net_liquidity_inputs(tmp_path)

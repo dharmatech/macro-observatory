@@ -41,6 +41,7 @@ Current implementation priorities:
 
 - FRED `WALCL` source dataset: `fred_walcl`.
 - FRED `RESPPLLOPNWW` source dataset: `fred_resppllopnww`.
+- FRED `SP500` source dataset: `fred_sp500`.
 - New York Fed RRP source dataset: `nyfed_rrp`.
 - Treasury Fiscal Data Operating Cash Balance source dataset: `treasury_dts_operating_cash_balance`.
 - Derived Treasury General Account dataset: `treasury_tga`.
@@ -56,6 +57,7 @@ Current implementation priorities:
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
 - Treasury Securities Net Issuance published browser artifacts under `site/data/`.
 - Treasury Securities Net Issuance static page UI under `site/pages/treasury-securities-net-issuance/`.
+- SP500 market-context published browser artifacts under `site/data/`, with overlay UI deferred.
 - Aggregate static-site build command via `build-site`, including targeted source-update mode.
 - GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
 - GitHub Actions data-cache persistence for `data/cache/` with explicit cold-build guardrail.
@@ -150,6 +152,7 @@ Update source datasets:
 ```powershell
 uv run macro-observatory update fred_walcl
 uv run macro-observatory update fred_resppllopnww
+uv run macro-observatory update fred_sp500
 uv run macro-observatory update nyfed_rrp
 uv run macro-observatory update treasury_dts_operating_cash_balance
 uv run macro-observatory update treasury_dts_deposits_withdrawals_operating_cash
@@ -171,12 +174,14 @@ Publish browser-facing artifacts:
 uv run macro-observatory publish fed_net_liquidity
 uv run macro-observatory publish treasury_dts_deposits_withdrawals_operating_cash_explorer
 uv run macro-observatory publish treasury_securities_net_issuance
+uv run macro-observatory publish fred_sp500
 ```
 
 Inspect data and storage:
 
 ```powershell
 uv run macro-observatory storage-report
+uv run macro-observatory info fred_sp500
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory info treasury_od_auctions_query
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash_explorer
@@ -194,7 +199,7 @@ uv run macro-observatory build-site --require-fred-api-key
 uv run macro-observatory build-site --from-cache
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
-uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --source-dataset fred_sp500 --require-fred-api-key
 ```
 
 Serve the static site locally:
@@ -414,6 +419,57 @@ site/assets/js/treasury-securities-net-issuance.js
 
 This derived dataset is wired into aggregate `build-site`, GitHub Pages deployment, and browser artifact publishing. Scheduled auctions refresh is intentionally still a future checkpoint.
 
+### FRED SP500 Market Context
+
+Source series:
+
+```text
+SP500
+```
+
+Current dataset ID:
+
+```text
+fred_sp500
+```
+
+Current cache paths:
+
+```text
+data/cache/sources/fred_sp500.parquet
+data/cache/metadata/fred_sp500.json
+```
+
+The source cache stores `date`, `value`, and `series_id` in FRED's published index-point units. It is intended as a separate market-context series for future chart overlays, not as a joined column on Treasury Securities Net Issuance rows.
+
+Latest local metadata at this checkpoint:
+
+```text
+rows: 2,610
+date range: 2016-06-27 to 2026-06-26
+source parquet: 40.0 KB
+metadata JSON: 0.7 KB
+```
+
+Published artifacts:
+
+```text
+site/data/sp500.json
+site/data/sp500.csv
+site/data/sp500-metadata.json
+```
+
+The SP500 JSON artifact uses compact JSON `split` orientation with `date` and `value` columns. Current artifact sizes:
+
+```text
+JSON artifact: 58.2 KB
+CSV artifact: 50.1 KB
+metadata JSON: 1.3 KB
+```
+
+Published metadata records `market_context_role: daily_price_overlay`, the FRED source URL, and a rights note because the FRED `SP500` page identifies third-party copyright/licensing caveats. The current checkpoint does not change any chart UI. A later Treasury Securities checkpoint can add a checkbox and secondary-axis overlay that consumes this artifact.
+
+Refresh cadence note: `fred_sp500` is currently included in the existing `fred_weekly` refresh group for conservative cache maintenance. If the overlay becomes a primary user-facing feature, revisit whether SP500 should move to a separate daily post-close FRED refresh group.
 ### TGA Explorer Derived Dataset
 
 Derived from:
@@ -496,11 +552,11 @@ The legacy default `transaction_fytd_amt` minimum of `100000` currently filters 
 A live `uv run macro-observatory storage-report` after the Treasury Securities Net Issuance page checkpoint showed:
 
 ```text
-source cache         6,140.5 KB
+source cache         6,180.5 KB
 derived cache        4,522.6 KB
-metadata                34.1 KB
-site data           71,062.2 KB
-overall             81,759.4 KB
+metadata                34.8 KB
+site data           71,171.8 KB
+overall             81,909.7 KB
 ```
 
 Notable generated artifact sizes:
@@ -516,13 +572,16 @@ site/data/tga-explorer-metadata.json                                            
 site/data/treasury-securities-net-issuance.json                                       4,033.4 KB
 site/data/treasury-securities-net-issuance.csv                                        3,351.7 KB
 site/data/treasury-securities-net-issuance-metadata.json                                  2.7 KB
+site/data/sp500.json                                                                      58.2 KB
+site/data/sp500.csv                                                                       50.1 KB
+site/data/sp500-metadata.json                                                              1.3 KB
 ```
 
 ## Secrets
 
 Source caches are ignored by git.
 
-The FRED adapter uses `FRED_API_KEY` when present. For the current FRED datasets, it can fall back to FRED's public CSV endpoint when no key is configured.
+The FRED adapter uses `FRED_API_KEY` when present. For the current FRED datasets, including `fred_sp500`, it can fall back to FRED's public CSV endpoint when no key is configured.
 
 The current New York Fed and Treasury Fiscal Data datasets do not require API keys.
 
@@ -530,7 +589,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoints are verifying that the next push-triggered Pages deployment restores the refreshed cache without source API calls, watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`, and then adding a scheduled auctions refresh group after the preferred Treasury auctions update time is confirmed.
+The next likely checkpoints are refreshing the GitHub Actions data cache so it contains `fred_sp500`, verifying that the next push-triggered Pages deployment restores that refreshed cache without source API calls, then adding the Treasury Securities SP500 overlay UI as a separate checkpoint. Live scheduled refresh validation and a future scheduled auctions refresh group also remain open.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -540,7 +599,7 @@ Deploy-on-push is re-enabled as a cache-only path. Push runs restore the existin
 
 Targeted source-update mode is implemented. `build-site --source-dataset ...` validates the full current source cache first, updates only selected source datasets, rebuilds all derived and browser artifacts, and rejects `--from-cache` conflicts, derived dataset IDs, and unknown dataset IDs.
 
-Local targeted validation completed on June 28, 2026. `uv run macro-observatory build-site --source-dataset nyfed_rrp` ran successfully, reported `source update mode: targeted`, selected `nyfed_rrp`, updated `1` source dataset, rebuilt `3` derived datasets, and published `2` browser artifacts. After the Treasury Securities page checkpoint, local `uv run macro-observatory build-site --from-cache` rebuilt `4` derived datasets and published `3` browser artifacts with `0` source updates.
+Local targeted validation completed on June 28, 2026. `uv run macro-observatory build-site --source-dataset nyfed_rrp` ran successfully, reported `source update mode: targeted`, selected `nyfed_rrp`, updated `1` source dataset, rebuilt `3` derived datasets, and published `2` browser artifacts. After the SP500 market-context checkpoint, local `uv run macro-observatory build-site --from-cache` rebuilt `4` derived datasets and published `4` browser artifacts with `0` source updates.
 
 Manual scheduled refresh validation completed on June 28, 2026. Workflow run `28318271888` dispatched `rrp_daily`, restored matched cache key `macro-observatory-data-cache-v1-Linux-28316049169`, selected `nyfed_rrp`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 9 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28318271888`, deployed successfully, and returned HTTP 200 for the root page, both current dashboard pages, and sampled JSON data artifacts.
 
@@ -556,4 +615,5 @@ Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dis
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
 - Scheduled refresh workflow timing should be validated with live runs on the next market day. The workflow uses UTC cron entries with Pacific/Eastern comments; daylight-saving behavior should be reviewed after observing several weeks of runs.
-- Treasury Securities Net Issuance now shows a visible `Today` marker and supports shareable hash links for grouping, checked security types, and x/y axis ranges. The remaining Treasury securities workflow gap is scheduled auctions refresh timing.
+- Treasury Securities Net Issuance now shows a visible `Today` marker and supports shareable hash links for grouping, checked security types, and x/y axis ranges. The remaining Treasury securities workflow gaps are scheduled auctions refresh timing and the deferred SP500 overlay UI.
+- The FRED `SP500` artifact includes a rights note because the FRED page identifies third-party copyright/licensing caveats. Revisit that note before any commercial or paywalled redistribution path.

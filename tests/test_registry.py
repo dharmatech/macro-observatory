@@ -15,6 +15,7 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
     assert sorted(registry) == [
         "fed_net_liquidity",
         "fred_resppllopnww",
+        "fred_sp500",
         "fred_walcl",
         "nyfed_rrp",
         "treasury_dts_deposits_withdrawals_operating_cash",
@@ -35,6 +36,17 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
     assert resp.metadata_path == tmp_path / "cache" / "metadata" / "fred_resppllopnww.json"
     assert resp.source_units == "millions of U.S. dollars"
     assert resp.display_units == "millions of U.S. dollars"
+
+    sp500 = registry["fred_sp500"]
+    assert sp500.title == "S&P 500 Index (SP500)"
+    assert sp500.source_name == "FRED"
+    assert sp500.kind == "source"
+    assert isinstance(sp500.adapter, FredSeriesAdapter)
+    assert sp500.adapter.series_id == "SP500"
+    assert sp500.cache_path == tmp_path / "cache" / "sources" / "fred_sp500.parquet"
+    assert sp500.metadata_path == tmp_path / "cache" / "metadata" / "fred_sp500.json"
+    assert sp500.source_units == "index points"
+    assert sp500.display_units == "index points"
 
     rrp = registry["nyfed_rrp"]
     assert rrp.title == "New York Fed Reverse Repo Operations (RRP)"
@@ -186,6 +198,7 @@ def test_get_dataset_spec_error_lists_known_ids(tmp_path: Path) -> None:
 
     assert "fed_net_liquidity" in message
     assert "fred_resppllopnww" in message
+    assert "fred_sp500" in message
     assert "fred_walcl" in message
     assert "nyfed_rrp" in message
     assert "treasury_dts_deposits_withdrawals_operating_cash" in message

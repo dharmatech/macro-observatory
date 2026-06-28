@@ -288,7 +288,42 @@ site/data/treasury-securities-net-issuance.csv
 site/data/treasury-securities-net-issuance-metadata.json
 ```
 
-Local `build-site --from-cache` now reports `4` derived datasets, `3` published datasets, and `0` source updates.
+Local `build-site --from-cache` now reports `4` derived datasets, `4` published datasets, and `0` source updates after the SP500 artifact checkpoint.
+
+## SP500 Market Context Artifact
+
+A follow-on data-only checkpoint adds the FRED `SP500` series as a separate source dataset and browser artifact for the future SPX comparison variant.
+
+Implemented dataset ID:
+
+```text
+fred_sp500
+```
+
+Implemented cache paths:
+
+```text
+data/cache/sources/fred_sp500.parquet
+data/cache/metadata/fred_sp500.json
+```
+
+Implemented browser artifacts:
+
+```text
+site/data/sp500.json
+site/data/sp500.csv
+site/data/sp500-metadata.json
+```
+
+Policy:
+
+- keep SP500 as an independent daily market-context series,
+- do not merge SP500 values into Treasury Securities Net Issuance rows,
+- use compact JSON `split` orientation with `date` and `value` columns,
+- record FRED provenance and the third-party rights caveat in metadata,
+- defer the checkbox, secondary y-axis, and chart overlay UI to a later checkpoint.
+
+This keeps the browser artifact small while avoiding duplicated market data across every Treasury row. The later overlay should load `sp500.json` separately and render it on a secondary y-axis. It should also decide whether SP500 needs a daily post-close refresh group rather than the current conservative weekly FRED refresh grouping.
 
 ## Metadata
 
@@ -319,7 +354,7 @@ treasury_od_auctions_query
 treasury_securities_net_issuance
 ```
 
-If the new source, derived dataset, and page are wired into aggregate `build-site --from-cache` before the Actions cache is intentionally refreshed, push-triggered Pages deployments can fail because the required cache files will be missing.
+If a new source, derived dataset, page, or source-only browser artifact is wired into aggregate `build-site --from-cache` before the Actions cache is intentionally refreshed, push-triggered Pages deployments can fail because the required cache files will be missing.
 
 Implementation should keep this sequence explicit:
 
@@ -374,7 +409,7 @@ Remote cache refresh completed. Aggregate `build-site` includes the new source, 
 
 ## Non-Goals
 
-- Port the SPX comparison variant in this milestone.
+- Port the SPX comparison UI variant in this milestone. The SP500 source and browser artifact are implemented only as data preparation for a later UI checkpoint.
 - Add yfinance or market-data dependencies in this milestone.
 - Add cumulative chart mode in the first version.
 - Add every Treasury securities view from the legacy project.
@@ -386,3 +421,4 @@ Remote cache refresh completed. Aggregate `build-site` includes the new source, 
 - Should a later revision expose `issued` and `maturing` as optional chart metrics?
 - Should the chart mode later support line and cumulative views from the adjacent legacy page?
 - What is the best scheduled refresh time for the auctions endpoint after current Treasury publishing behavior is checked?
+- Should SP500 move to a separate daily post-close FRED refresh group when the overlay UI is enabled?

@@ -60,7 +60,7 @@ The scheduled workflow should support these refresh groups.
 | --- | --- | --- | --- | --- | --- |
 | `rrp_daily` | `nyfed_rrp` | `35 18 * * 1-5` | 11:35 AM PDT / 10:35 AM PST | 2:35 PM EDT / 1:35 PM EST | Fed Net Liquidity |
 | `treasury_daily` | `treasury_dts_operating_cash_balance`, `treasury_dts_deposits_withdrawals_operating_cash` | `25 21 * * 1-5` | 2:25 PM PDT / 1:25 PM PST | 5:25 PM EDT / 4:25 PM EST | Fed Net Liquidity and TGA Explorer |
-| `fred_weekly` | `fred_walcl`, `fred_resppllopnww` | `55 21 * * 4` | 2:55 PM PDT / 1:55 PM PST | 5:55 PM EDT / 4:55 PM EST | Fed Net Liquidity |
+| `fred_weekly` | `fred_walcl`, `fred_resppllopnww`, `fred_sp500` | `55 21 * * 4` | 2:55 PM PDT / 1:55 PM PST | 5:55 PM EDT / 4:55 PM EST | Fed Net Liquidity |
 
 These UTC times are intentionally conservative. They are later than the legacy local-time comments during daylight saving time, but they avoid being too early during standard time.
 
@@ -115,7 +115,7 @@ Command shape:
 ```powershell
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
-uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
+uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --source-dataset fred_sp500 --require-fred-api-key
 ```
 
 Policy:
@@ -181,7 +181,7 @@ A failed scheduled run should fail loudly before source APIs are called if the c
 
 The targeted `build-site --source-dataset ...` checkpoint is implemented and locally validated with the `nyfed_rrp` source dataset.
 
-The scheduled workflow implementation checkpoint adds `scheduled-refresh.yml` with the three initial refresh groups and cache-miss guardrails.
+The scheduled workflow implementation checkpoint adds `scheduled-refresh.yml` with the three initial refresh groups and cache-miss guardrails. The `fred_weekly` group now also includes `fred_sp500` as conservative cache maintenance for the future Treasury Securities market-context overlay; revisit daily post-close refresh timing when that overlay becomes user-facing.
 
 Manual dispatch validation completed on June 28, 2026. Run `28318271888` dispatched `rrp_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28316049169`, selected `nyfed_rrp`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 9 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28318271888`, deployed successfully, and returned HTTP 200 for the public root page, both current dashboard pages, and sampled data artifacts.
 
