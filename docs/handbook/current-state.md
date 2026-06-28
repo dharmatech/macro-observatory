@@ -27,6 +27,7 @@ Current implementation priorities:
 - `docs/design/04-tga-explorer-milestone.md`
 - `docs/design/05-github-pages-deployment.md`
 - `docs/design/06-github-actions-cache-persistence.md`
+- `docs/design/07-scheduled-refresh-policy.md`
 - `docs/design/90-future-deployment-options.md`
 - `docs/design/91-browser-data-formats.md`
 
@@ -374,7 +375,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is scheduled data refresh now that deploy-on-push is cache-only.
+The next likely checkpoint is implementing targeted source updates for scheduled refresh, following `docs/design/07-scheduled-refresh-policy.md`.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -391,4 +392,4 @@ Deploy-on-push is re-enabled as a cache-only path. Push runs restore the existin
 - The TGA Explorer browser artifact is much larger than Fed Net Liquidity. The page now reports fetch, JSON parse, filtering, trace construction, and Plotly render timing, but those numbers still need browser testing on real machines.
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
-- Scheduled refresh workflows are not implemented yet.
+- Scheduled refresh workflows are designed in `docs/design/07-scheduled-refresh-policy.md` but not implemented yet.
