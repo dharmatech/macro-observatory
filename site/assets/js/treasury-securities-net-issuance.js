@@ -22,6 +22,9 @@
     Bond: "#c33a2b"
   };
   const SP500_LINE_COLOR = "#293241";
+  const SP500_HALO_COLOR = "rgba(255, 255, 255, 0.92)";
+  const SP500_LINE_WIDTH = 2.4;
+  const SP500_HALO_WIDTH = 6;
   const FILTER_DEBOUNCE_MS = 80;
   const COPY_FEEDBACK_MS = 2200;
 
@@ -509,17 +512,33 @@
     renderSp500Status();
   }
 
-  function buildSp500Trace() {
-    return {
-      x: sp500Rows.map((row) => row.date),
-      y: sp500Rows.map((row) => row.value),
+  function buildSp500Traces() {
+    const xValues = sp500Rows.map((row) => row.date);
+    const yValues = sp500Rows.map((row) => row.value);
+    const haloTrace = {
+      x: xValues,
+      y: yValues,
+      name: "S&P 500",
+      type: "scatter",
+      mode: "lines",
+      yaxis: "y2",
+      showlegend: false,
+      hoverinfo: "skip",
+      line: {
+        color: SP500_HALO_COLOR,
+        width: SP500_HALO_WIDTH
+      }
+    };
+    const lineTrace = {
+      x: xValues,
+      y: yValues,
       name: "S&P 500",
       type: "scatter",
       mode: "lines",
       yaxis: "y2",
       line: {
         color: SP500_LINE_COLOR,
-        width: 2
+        width: SP500_LINE_WIDTH
       },
       hovertemplate: [
         "S&P 500",
@@ -527,6 +546,7 @@
         "Close: %{y:,.2f}<extra></extra>"
       ].join("<br>")
     };
+    return [haloTrace, lineTrace];
   }
 
   function buildTraces(filtered) {
@@ -596,7 +616,7 @@
     });
 
     if (filtered.showSp500) {
-      traces.push(buildSp500Trace());
+      traces.push(...buildSp500Traces());
     }
 
     timings.trace = performance.now() - started;
