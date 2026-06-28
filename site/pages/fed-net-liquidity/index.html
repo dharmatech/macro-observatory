@@ -56,9 +56,12 @@
     <section class="chart-section" aria-labelledby="chart-heading">
       <div class="section-heading-row">
         <h2 id="chart-heading">Time Series</h2>
-        <span class="range-label" id="date-range-label">-</span>
+        <div class="chart-heading-actions">
+          <span class="range-label" id="date-range-label">-</span>
+          <button class="chart-expand-button" id="liquidity-chart-expand" type="button">Expand</button>
+        </div>
       </div>
-      <div class="chart-frame">
+      <div class="chart-frame" id="liquidity-chart-frame">
         <div id="liquidity-chart" class="plotly-chart" aria-label="Fed Net Liquidity chart"></div>
       </div>
     </section>

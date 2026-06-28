@@ -567,6 +567,14 @@
   }
 
   async function initialize() {
+    window.MacroObservatory.enableChartExpansion({
+      buttonId: "tga-chart-expand",
+      frameId: "tga-chart-frame",
+      chartId: "tga-chart",
+      title: "TGA Explorer",
+      metaId: "filtered-range-label"
+    });
+
     try {
       metadata = await window.MacroObservatory.fetchJson(METADATA_URL);
       renderMetadata();

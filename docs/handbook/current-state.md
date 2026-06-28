@@ -81,6 +81,13 @@ Current static-site files:
 
 Generated data under `data/cache/` and `site/data/` is ignored by git.
 
+Shared static behavior:
+
+- `site/assets/js/site.js` provides `enableChartExpansion(...)` for in-app viewport-expanded chart mode.
+- Current chart pages use a visible `Expand` button and an expanded-view `Restore` button.
+- `Escape` also restores the chart on keyboard devices.
+- The helper restores scroll position and calls `Plotly.Plots.resize(...)` after expand and restore.
+
 ## Tooling
 
 The project uses `uv`.
@@ -209,7 +216,7 @@ site/data/fed-net-liquidity.csv
 site/data/fed-net-liquidity-metadata.json
 ```
 
-The JSON artifact uses record orientation. The current Fed Net Liquidity static page loads this artifact and renders the Plotly chart and recent-observations table.
+The JSON artifact uses record orientation. The current Fed Net Liquidity static page loads this artifact, renders the Plotly chart and recent-observations table, and supports shared viewport-expanded chart mode.
 
 ### Treasury Deposits And Withdrawals Operating Cash
 
@@ -314,7 +321,7 @@ site/pages/tga-explorer/index.html
 site/assets/js/tga-explorer.js
 ```
 
-The page lazy-loads `tga-explorer.json`, keeps the split payload in array form, provides the base legacy controls, renders a relative Plotly bar chart, enforces the metadata render guardrail, and shows timing diagnostics for data fetch, JSON parse, filtering, trace preparation, and Plotly rendering.
+The page lazy-loads `tga-explorer.json`, keeps the split payload in array form, provides the base legacy controls, renders a relative Plotly bar chart, enforces the metadata render guardrail, shows timing diagnostics for data fetch, JSON parse, filtering, trace preparation, and Plotly rendering, and supports shared viewport-expanded chart mode.
 
 The legacy default `transaction_fytd_amt` minimum of `100000` currently filters to `10,606` rows, slightly above the `10,000` row guardrail. The static page therefore starts the FYTD minimum at `115000`, which filters the current artifact to `9,806` rows and `24` categories so the first load can render. Users can still enter `100000` manually to test the legacy threshold and guardrail behavior.
 
@@ -361,6 +368,7 @@ Recommended manual checks:
 - Try the legacy FYTD minimum `100000` and confirm the guardrail refuses to render over `10,000` rows.
 - Try narrower category filters and confirm chart updates remain responsive.
 - Verify the existing Fed Net Liquidity page still behaves normally.
+- Try `Expand`, `Restore`, and `Escape` on both current chart pages.
 
 After manual inspection, GitHub Pages deployment and GitHub Actions refresh workflows are still open.
 

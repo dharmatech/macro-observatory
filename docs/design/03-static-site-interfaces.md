@@ -55,6 +55,20 @@ site/
 
 This keeps the implementation direct and avoids introducing a frontend build step before the first chart exists. A future checkpoint can reorganize the frontend once there is more than one interface to route between.
 
+## Shared Browser Behaviors
+
+Common chart interactions should live in shared static-site code when they are not specific to one dataset.
+
+The first shared behavior is viewport-expanded chart mode. Pages should use the shared `enableChartExpansion(...)` helper instead of reimplementing expansion per dashboard. The behavior is intentionally in-app rather than operating-system fullscreen:
+
+- a visible `Expand` button appears near the chart heading,
+- the expanded chart gets a visible `Restore` button,
+- `Escape` is an extra restore shortcut,
+- scroll position is restored on close,
+- Plotly is resized after expand and restore.
+
+Future chart pages should use the same pattern unless a page has a clear reason to diverge.
+
 ## Future Interfaces
 
 Future interfaces should be allowed to exist beside the first one without disrupting existing URLs or users.

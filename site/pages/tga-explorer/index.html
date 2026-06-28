@@ -111,10 +111,13 @@
         <section class="chart-section explorer-chart-section" aria-labelledby="chart-heading">
           <div class="section-heading-row">
             <h2 id="chart-heading">Deposits And Withdrawals</h2>
-            <span class="range-label" id="filtered-range-label">-</span>
+            <div class="chart-heading-actions">
+              <span class="range-label" id="filtered-range-label">-</span>
+              <button class="chart-expand-button" id="tga-chart-expand" type="button">Expand</button>
+            </div>
           </div>
           <div class="guardrail-message" id="guardrail-message" hidden></div>
-          <div class="chart-frame tga-chart-frame">
+          <div class="chart-frame tga-chart-frame" id="tga-chart-frame">
             <div id="tga-chart" class="plotly-chart tga-chart" aria-label="TGA Explorer chart"></div>
           </div>
           <div class="diagnostics-bar" id="diagnostics-bar">Rows - | Data - | Parse - | Filter - | Trace - | Render -</div>

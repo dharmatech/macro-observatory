@@ -654,3 +654,112 @@ dd {
     height: 440px;
   }
 }
+.chart-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chart-expand-button,
+.chart-expand-restore {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chart-expand-button:hover,
+.chart-expand-restore:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.chart-expand-button:focus,
+.chart-expand-restore:focus {
+  outline: 2px solid rgba(31, 95, 191, 0.28);
+  outline-offset: 2px;
+}
+
+.chart-expand-header {
+  display: none;
+}
+
+body.chart-expanded-active {
+  overflow: hidden;
+}
+
+.chart-frame.is-chart-expanded {
+  position: fixed;
+  inset: 12px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.chart-frame.is-chart-expanded .chart-expand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 58px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.chart-expand-title-block {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.chart-expand-title {
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.chart-expand-meta {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-frame.is-chart-expanded .plotly-chart {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
+@media (max-width: 900px) {
+  .chart-heading-actions {
+    justify-content: flex-start;
+  }
+
+  .chart-frame.is-chart-expanded {
+    inset: 0;
+    border-radius: 0;
+  }
+
+  .chart-frame.is-chart-expanded .chart-expand-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .chart-expand-restore {
+    width: 100%;
+  }
+}

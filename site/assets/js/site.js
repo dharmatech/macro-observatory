@@ -151,8 +151,124 @@
     return cell;
   }
 
+  function resizePlotlyChart(chart) {
+    if (window.Plotly && window.Plotly.Plots && typeof window.Plotly.Plots.resize === "function") {
+      window.Plotly.Plots.resize(chart);
+    }
+  }
+
+  function schedulePlotlyResize(chart) {
+    window.requestAnimationFrame(() => {
+      resizePlotlyChart(chart);
+      window.setTimeout(() => resizePlotlyChart(chart), 80);
+    });
+  }
+
+  function enableChartExpansion(options) {
+    const button = getElement(options.buttonId);
+    const frame = getElement(options.frameId);
+    const chart = getElement(options.chartId);
+    const title = options.title || "Chart";
+    let expanded = false;
+    let scrollY = 0;
+
+    const header = document.createElement("div");
+    header.className = "chart-expand-header";
+
+    const titleBlock = document.createElement("div");
+    titleBlock.className = "chart-expand-title-block";
+
+    const titleElement = document.createElement("strong");
+    titleElement.className = "chart-expand-title";
+    titleElement.textContent = title;
+
+    const metaElement = document.createElement("span");
+    metaElement.className = "chart-expand-meta";
+
+    const restoreButton = document.createElement("button");
+    restoreButton.type = "button";
+    restoreButton.className = "chart-expand-restore";
+    restoreButton.textContent = "Restore";
+
+    titleBlock.appendChild(titleElement);
+    titleBlock.appendChild(metaElement);
+    header.appendChild(titleBlock);
+    header.appendChild(restoreButton);
+    frame.insertBefore(header, frame.firstChild);
+
+    button.setAttribute("aria-controls", options.frameId);
+    button.setAttribute("aria-expanded", "false");
+
+    function currentMetaText() {
+      if (!options.metaId) {
+        return "";
+      }
+      const meta = document.getElementById(options.metaId);
+      return meta ? meta.textContent : "";
+    }
+
+    function syncHeaderMeta() {
+      metaElement.textContent = currentMetaText();
+    }
+
+    function expand() {
+      if (expanded) {
+        return;
+      }
+      expanded = true;
+      scrollY = window.scrollY;
+      syncHeaderMeta();
+      document.body.classList.add("chart-expanded-active");
+      frame.classList.add("is-chart-expanded");
+      frame.setAttribute("role", "dialog");
+      frame.setAttribute("aria-label", `${title} expanded chart`);
+      button.textContent = "Restore";
+      button.setAttribute("aria-expanded", "true");
+      restoreButton.focus({ preventScroll: true });
+      schedulePlotlyResize(chart);
+    }
+
+    function restore() {
+      if (!expanded) {
+        return;
+      }
+      expanded = false;
+      frame.classList.remove("is-chart-expanded");
+      frame.removeAttribute("role");
+      frame.removeAttribute("aria-label");
+      document.body.classList.remove("chart-expanded-active");
+      button.textContent = "Expand";
+      button.setAttribute("aria-expanded", "false");
+      button.focus({ preventScroll: true });
+      window.scrollTo(0, scrollY);
+      schedulePlotlyResize(chart);
+    }
+
+    button.addEventListener("click", () => {
+      if (expanded) {
+        restore();
+      } else {
+        expand();
+      }
+    });
+    restoreButton.addEventListener("click", restore);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && expanded) {
+        event.preventDefault();
+        restore();
+      }
+    });
+    window.addEventListener("resize", () => {
+      if (expanded) {
+        syncHeaderMeta();
+        schedulePlotlyResize(chart);
+      }
+    });
+  }
+
   window.MacroObservatory = {
     clearChildren,
+    enableChartExpansion,
     fetchJson,
     formatDate,
     formatInteger,

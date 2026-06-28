@@ -230,6 +230,14 @@
   }
 
   function initialize() {
+    window.MacroObservatory.enableChartExpansion({
+      buttonId: "liquidity-chart-expand",
+      frameId: "liquidity-chart-frame",
+      chartId: "liquidity-chart",
+      title: "Fed Net Liquidity",
+      metaId: "date-range-label"
+    });
+
     Promise.all([
       window.MacroObservatory.fetchJson(DATA_URL),
       window.MacroObservatory.fetchJson(METADATA_URL)
