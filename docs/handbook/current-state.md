@@ -28,6 +28,7 @@ Current implementation priorities:
 - `docs/design/05-github-pages-deployment.md`
 - `docs/design/06-github-actions-cache-persistence.md`
 - `docs/design/07-scheduled-refresh-policy.md`
+- `docs/design/08-treasury-securities-net-issuance-milestone.md`
 - `docs/design/90-future-deployment-options.md`
 - `docs/design/91-browser-data-formats.md`
 
@@ -380,7 +381,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`.
+The next likely checkpoints are watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`, then implementing the `treasury_od_auctions_query` source dataset for the Treasury Securities Net Issuance milestone.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 

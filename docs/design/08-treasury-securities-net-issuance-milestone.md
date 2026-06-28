@@ -1,0 +1,270 @@
+# Treasury Securities Net Issuance Milestone
+
+Status: draft
+
+This document defines the next Macro Observatory implementation milestone: build a static Treasury Securities Net Issuance page inspired by the legacy Streamlit `Treasury Securities Net Issuance Resample` page.
+
+The goal is not a line-by-line port. The goal is to preserve the useful behavior while adapting the implementation to Macro Observatory's source-cache, derived-cache, browser-artifact, and static-page architecture.
+
+## Why This Page Next
+
+This page adds a new Treasury Fiscal Data endpoint and a new derived dataset shape. The current pages cover Fed Net Liquidity and TGA Explorer. This page adds Treasury auction data and derives issuance and maturity flows by security type.
+
+It should validate:
+
+- another Treasury Fiscal Data source dataset,
+- full-source endpoint caching for exploratory Pandas use,
+- a compact derived dataset for browser rendering,
+- browser-side grouping by day, week, month end, quarter end, and year end,
+- a third dashboard page on the static site.
+
+The same source dataset should support future Treasury securities pages, including cumulative issuance views and the SPX comparison variant.
+
+## Legacy Page
+
+Legacy Streamlit page:
+
+```text
+C:\Users\dharm\Dropbox\Documents\fed_net_liquidity_streamlit.py\pages\5_Treasury_Securities_Net_Issuance_Resample.py
+```
+
+Original source project file:
+
+```text
+C:\Users\dharm\Dropbox\Documents\treasury-securities-net-issuance.py\treasury-securities-net-issuance-resample-after.py
+```
+
+The legacy page loads Treasury auction rows, computes net issuance by security type, and lets the user choose a pandas resample frequency:
+
+```text
+D, W, ME, QE, YE
+```
+
+The default legacy grouping is `ME`, month end.
+
+## Source Dataset
+
+The raw source comes from the Treasury Fiscal Data auctions query endpoint:
+
+```text
+https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query
+```
+
+Proposed source dataset ID:
+
+```text
+treasury_od_auctions_query
+```
+
+Expected source cache paths:
+
+```text
+data/cache/sources/treasury_od_auctions_query.parquet
+data/cache/metadata/treasury_od_auctions_query.json
+```
+
+The source cache should preserve the full endpoint, not only the columns needed by this first page. That keeps the dataset useful for Pandas inspection and future Treasury securities pages.
+
+Initial required source columns:
+
+```text
+record_date
+cusip
+security_type
+auction_date
+issue_date
+maturity_date
+total_accepted
+```
+
+The legacy cache had repeated `cusip` values, but no duplicates for this fuller key:
+
+```text
+record_date, cusip, auction_date, issue_date, maturity_date
+```
+
+## Derived Dataset
+
+Proposed derived dataset ID:
+
+```text
+treasury_securities_net_issuance
+```
+
+Expected derived cache paths:
+
+```text
+data/cache/derived/treasury_securities_net_issuance.parquet
+data/cache/metadata/treasury_securities_net_issuance.json
+```
+
+The derived dataset should normalize security types and compute daily issued, maturing, and net change amounts by security type.
+
+Initial normalized security type policy:
+
+```text
+TIPS Note -> Note
+FRN Note  -> Note
+TIPS Bond -> Bond
+CMB       -> Bill
+```
+
+Initial output columns:
+
+```text
+date
+security_type
+issued
+maturing
+change
+```
+
+Formula:
+
+```text
+change = issued - maturing
+```
+
+The first chart can render only `change`, but preserving `issued` and `maturing` keeps the derived dataset useful for later pages.
+
+## Future Maturities
+
+This dataset naturally includes future maturity dates. The legacy cache had maturity dates extending decades beyond the latest issue date.
+
+That behavior should be preserved. The page and metadata should make clear that the chart can include scheduled future maturities from already-known Treasury securities, not only historical observations.
+
+## Browser Artifact And Page
+
+The browser should not load the full raw auctions endpoint. Publish a compact artifact from the derived dataset:
+
+```text
+site/data/treasury-securities-net-issuance.json
+site/data/treasury-securities-net-issuance.csv
+site/data/treasury-securities-net-issuance-metadata.json
+```
+
+Proposed static page path:
+
+```text
+site/pages/treasury-securities-net-issuance/
+```
+
+Proposed JavaScript path:
+
+```text
+site/assets/js/treasury-securities-net-issuance.js
+```
+
+Initial controls:
+
+- grouping select: `D`, `W`, `ME`, `QE`, `YE`
+- chart metric fixed to `change` for the first version
+- shared chart expand/restore behavior
+
+Initial chart:
+
+- Plotly bar chart,
+- x-axis: grouped date,
+- y-axis: net issuance change,
+- series: `Bill`, `Note`, `Bond`,
+- default grouping: `ME`.
+
+The browser artifact should publish daily values. The page can group to week, month end, quarter end, or year end without another network request.
+
+## Metadata
+
+Useful metadata fields:
+
+- source endpoint,
+- source dataset ID,
+- derived dataset ID,
+- source row count,
+- derived row count,
+- date range,
+- normalized security type mapping,
+- amount columns,
+- units,
+- future maturity note,
+- supported grouping frequencies,
+- default grouping.
+
+## GitHub Actions Cache Sequencing
+
+Adding this dataset to the aggregate static-site pipeline changes the cache contract.
+
+The current GitHub Actions data cache does not yet contain:
+
+```text
+treasury_od_auctions_query
+treasury_securities_net_issuance
+```
+
+If the new source, derived dataset, and page are wired into aggregate `build-site --from-cache` before the Actions cache is intentionally refreshed, push-triggered Pages deployments can fail because the required cache files will be missing.
+
+Implementation should keep this sequence explicit:
+
+1. implement and validate the source dataset locally,
+2. implement and validate the derived dataset locally,
+3. implement and validate browser artifact publishing locally,
+4. implement and validate the static page locally,
+5. wire the new datasets/page into aggregate `build-site`,
+6. push the code,
+7. run an intentional manual source-update workflow to populate the new Actions cache,
+8. confirm later push deploys work from cache.
+
+## Scheduled Refresh
+
+The legacy Streamlit project had an auctions cron hint around 2:00 PM Pacific on weekdays.
+
+Scheduled refresh is out of scope for the first page implementation. After the page and cache sequencing are validated, add a Treasury auctions refresh group to `.github/workflows/scheduled-refresh.yml`.
+
+Likely future refresh group:
+
+```text
+treasury_auctions_daily -> treasury_od_auctions_query
+```
+
+The exact time should be checked against current Treasury publishing behavior before enabling the schedule.
+
+## Checkpoint Sequence
+
+### 1. Source Dataset Checkpoint
+
+Complete when Macro Observatory can register `treasury_od_auctions_query`, fetch the full endpoint with pagination, update incrementally, cache source Parquet and metadata, load the dataset in Pandas, and show it through `datasets`, `info`, `show`, and `storage-report`.
+
+Stop after this checkpoint to inspect schema, row count, date ranges, file size, and primary-key behavior.
+
+### 2. Derived Dataset Checkpoint
+
+Complete when Macro Observatory can build `treasury_securities_net_issuance`, normalize security types, compute issued, maturing, and change by date and security type, preserve future maturity dates, and cache derived Parquet plus metadata.
+
+Stop after this checkpoint to compare results with the legacy Streamlit page.
+
+### 3. Browser Artifact Checkpoint
+
+Complete when Macro Observatory can publish JSON, CSV, and metadata companions for `treasury-securities-net-issuance` and report file sizes in `storage-report`.
+
+### 4. Page Checkpoint
+
+Complete when the static site can show the Treasury Securities Net Issuance page, render the Plotly bar chart, switch grouping among `D`, `W`, `ME`, `QE`, and `YE`, default to `ME`, use shared chart expand/restore behavior, and link from the site index.
+
+### 5. Aggregate Build And Actions Cache Checkpoint
+
+Complete when aggregate `build-site` includes the new source, derived dataset, publish artifact, and page; local `build-site --from-cache` works; GitHub Actions cache is intentionally refreshed with the new files; and push-triggered Pages deployment restores the refreshed cache without source API calls.
+
+## Non-Goals
+
+- Port the SPX comparison variant in this milestone.
+- Add yfinance or market-data dependencies in this milestone.
+- Add cumulative chart mode in the first version.
+- Add every Treasury securities view from the legacy project.
+- Replace Plotly before testing the baseline page.
+- Add scheduled auctions refresh before cache sequencing is validated.
+
+## Open Questions
+
+- Should the first static page include only `change`, or expose `issued` and `maturing` as optional chart metrics?
+- Should the chart mode later support line and cumulative views from the adjacent legacy page?
+- Should dates after today be visually distinguished because they represent scheduled future maturities?
+- Should browser grouping match pandas `resample` exactly, or is a documented JavaScript equivalent acceptable if edge cases differ?
+- What is the best scheduled refresh time for the auctions endpoint after current Treasury publishing behavior is checked?
