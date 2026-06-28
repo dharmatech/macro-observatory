@@ -405,7 +405,7 @@ Completed. The static site can show the Treasury Securities Net Issuance page, r
 
 ### 5. Aggregate Build And Actions Cache Checkpoint
 
-Remote cache refresh completed. Aggregate `build-site` includes the new source, derived dataset, publish artifact, and page; local `build-site --from-cache` works with the local cache; manual Pages run `28328939575` intentionally refreshed the GitHub Actions data cache with `treasury_od_auctions_query`, rebuilt `4` derived datasets, published `3` browser artifacts, saved cache key `macro-observatory-data-cache-v1-Linux-28328939575`, and deployed the new page. The next push-triggered deployment should now restore the refreshed cache without source API calls.
+Remote cache refresh completed for the Treasury Securities page. Aggregate `build-site` includes the new source, derived dataset, publish artifact, and page; local `build-site --from-cache` works with the local cache; manual Pages run `28328939575` intentionally refreshed the GitHub Actions data cache with `treasury_od_auctions_query`, rebuilt `4` derived datasets, published `3` browser artifacts, saved cache key `macro-observatory-data-cache-v1-Linux-28328939575`, and deployed the new page. A later SP500 artifact checkpoint refreshed the Actions cache again with manual Pages run `28333510067`, which selected `7` source datasets including `fred_sp500`, published `4` browser artifacts, saved cache key `macro-observatory-data-cache-v1-Linux-28333510067`, and deployed `sp500.json` plus `sp500-metadata.json`. The next push-triggered deployment should now restore the refreshed cache without source API calls.
 
 ## Non-Goals
 

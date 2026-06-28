@@ -589,7 +589,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoints are refreshing the GitHub Actions data cache so it contains `fred_sp500`, verifying that the next push-triggered Pages deployment restores that refreshed cache without source API calls, then adding the Treasury Securities SP500 overlay UI as a separate checkpoint. Live scheduled refresh validation and a future scheduled auctions refresh group also remain open.
+The next likely checkpoints are verifying that the next push-triggered Pages deployment restores the SP500-refreshed cache without source API calls, then adding the Treasury Securities SP500 overlay UI as a separate checkpoint. Live scheduled refresh validation and a future scheduled auctions refresh group also remain open.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -602,6 +602,8 @@ Targeted source-update mode is implemented. `build-site --source-dataset ...` va
 Local targeted validation completed on June 28, 2026. `uv run macro-observatory build-site --source-dataset nyfed_rrp` ran successfully, reported `source update mode: targeted`, selected `nyfed_rrp`, updated `1` source dataset, rebuilt `3` derived datasets, and published `2` browser artifacts. After the SP500 market-context checkpoint, local `uv run macro-observatory build-site --from-cache` rebuilt `4` derived datasets and published `4` browser artifacts with `0` source updates.
 
 Manual scheduled refresh validation completed on June 28, 2026. Workflow run `28318271888` dispatched `rrp_daily`, restored matched cache key `macro-observatory-data-cache-v1-Linux-28316049169`, selected `nyfed_rrp`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 9 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28318271888`, deployed successfully, and returned HTTP 200 for the root page, both current dashboard pages, and sampled JSON data artifacts.
+
+SP500 Actions cache refresh completed on June 28, 2026. The first push run for commit `50bbdd7`, run `28333482663`, failed intentionally in cache-only mode because the restored cache did not yet contain `data/cache/sources/fred_sp500.parquet` or `data/cache/metadata/fred_sp500.json`. Manual Pages run `28333510067` then restored cache key `macro-observatory-data-cache-v1-Linux-28328939575`, ran a full source update with `allow_cold_build=false`, selected `7` source datasets including `fred_sp500`, built in 12 seconds, published `4` browser artifacts, saved new cache key `macro-observatory-data-cache-v1-Linux-28333510067`, deployed successfully, and returned HTTP 200 for the public root page, Treasury Securities page, `sp500.json`, and `sp500-metadata.json`.
 
 Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dispatch validation completed successfully. Live Monday schedule validation is the next check.
 
