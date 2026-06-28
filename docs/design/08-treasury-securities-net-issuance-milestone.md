@@ -1,6 +1,6 @@
 # Treasury Securities Net Issuance Milestone
 
-Status: browser artifact and static page checkpoint implemented
+Status: browser artifact, static page, and SP500 overlay checkpoints implemented
 
 This document defines the next Macro Observatory implementation milestone: build a static Treasury Securities Net Issuance page inspired by the legacy Streamlit `Treasury Securities Net Issuance Resample` page.
 
@@ -321,9 +321,26 @@ Policy:
 - do not merge SP500 values into Treasury Securities Net Issuance rows,
 - use compact JSON `split` orientation with `date` and `value` columns,
 - record FRED provenance and the third-party rights caveat in metadata,
-- defer the checkbox, secondary y-axis, and chart overlay UI to a later checkpoint.
+- render SP500 as an optional chart overlay rather than a required page dependency.
 
-This keeps the browser artifact small while avoiding duplicated market data across every Treasury row. The later overlay should load `sp500.json` separately and render it on a secondary y-axis. It should also decide whether SP500 needs a daily post-close refresh group rather than the current conservative weekly FRED refresh grouping.
+This keeps the browser artifact small while avoiding duplicated market data across every Treasury row.
+
+## SP500 Overlay UI Checkpoint Result
+
+The SP500 overlay UI checkpoint is implemented.
+
+Behavior:
+
+- the Treasury Securities Net Issuance sidebar includes a `S&P 500` checkbox under `Market Context`, default off,
+- the page loads `site/data/sp500.json` separately from the Treasury securities artifact,
+- enabling the checkbox adds a daily SP500 line on a right-side secondary y-axis,
+- Treasury security grouping remains controlled by `D`, `W`, `ME`, `QE`, and `YE`; SP500 stays daily regardless of that grouping,
+- null FRED observations are filtered out so non-trading days do not create invalid line points,
+- the overlay status shows the FRED series ID and latest SP500 date,
+- chart diagnostics include SP500 fetch and parse timing when the overlay is enabled,
+- normal and expanded `Copy Link` actions preserve `sp500=1` plus optional `sp500y0` and `sp500y1` right-axis ranges.
+
+The page intentionally persists only left-sidebar security-type state and the optional SP500 overlay state. It still does not persist Plotly legend-only visibility, hover state, expanded mode, or range-selector button state.
 
 ## Metadata
 
@@ -405,11 +422,15 @@ Completed. The static site can show the Treasury Securities Net Issuance page, r
 
 ### 5. Aggregate Build And Actions Cache Checkpoint
 
-Remote cache refresh completed for the Treasury Securities page. Aggregate `build-site` includes the new source, derived dataset, publish artifact, and page; local `build-site --from-cache` works with the local cache; manual Pages run `28328939575` intentionally refreshed the GitHub Actions data cache with `treasury_od_auctions_query`, rebuilt `4` derived datasets, published `3` browser artifacts, saved cache key `macro-observatory-data-cache-v1-Linux-28328939575`, and deployed the new page. A later SP500 artifact checkpoint refreshed the Actions cache again with manual Pages run `28333510067`, which selected `7` source datasets including `fred_sp500`, published `4` browser artifacts, saved cache key `macro-observatory-data-cache-v1-Linux-28333510067`, and deployed `sp500.json` plus `sp500-metadata.json`. The next push-triggered deployment should now restore the refreshed cache without source API calls.
+Remote cache refresh completed for the Treasury Securities page. Aggregate `build-site` includes the new source, derived dataset, publish artifact, and page; local `build-site --from-cache` works with the local cache; manual Pages run `28328939575` intentionally refreshed the GitHub Actions data cache with `treasury_od_auctions_query`, rebuilt `4` derived datasets, published `3` browser artifacts, saved cache key `macro-observatory-data-cache-v1-Linux-28328939575`, and deployed the new page. A later SP500 artifact checkpoint refreshed the Actions cache again with manual Pages run `28333510067`, which selected `7` source datasets including `fred_sp500`, published `4` browser artifacts, saved cache key `macro-observatory-data-cache-v1-Linux-28333510067`, and deployed `sp500.json` plus `sp500-metadata.json`.
+
+### 6. SP500 Overlay UI Checkpoint
+
+Completed. The Treasury Securities Net Issuance page can optionally render the FRED SP500 series as a daily line on a secondary right y-axis while keeping Treasury issuance bars grouped by the selected pandas frequency. Share links preserve the overlay checkbox and optional right-axis range, and the same copy-link action is available in normal and expanded chart modes.
 
 ## Non-Goals
 
-- Port the SPX comparison UI variant in this milestone. The SP500 source and browser artifact are implemented only as data preparation for a later UI checkpoint.
+- Port the full legacy SPX comparison variant in this milestone. The current implementation adds only the SP500 overlay needed for first-pass market context.
 - Add yfinance or market-data dependencies in this milestone.
 - Add cumulative chart mode in the first version.
 - Add every Treasury securities view from the legacy project.
@@ -421,4 +442,4 @@ Remote cache refresh completed for the Treasury Securities page. Aggregate `buil
 - Should a later revision expose `issued` and `maturing` as optional chart metrics?
 - Should the chart mode later support line and cumulative views from the adjacent legacy page?
 - What is the best scheduled refresh time for the auctions endpoint after current Treasury publishing behavior is checked?
-- Should SP500 move to a separate daily post-close FRED refresh group when the overlay UI is enabled?
+- Should SP500 move to a separate daily post-close FRED refresh group now that the overlay UI is enabled?

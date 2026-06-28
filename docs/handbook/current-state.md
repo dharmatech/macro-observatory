@@ -57,7 +57,8 @@ Current implementation priorities:
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
 - Treasury Securities Net Issuance published browser artifacts under `site/data/`.
 - Treasury Securities Net Issuance static page UI under `site/pages/treasury-securities-net-issuance/`.
-- SP500 market-context published browser artifacts under `site/data/`, with overlay UI deferred.
+- Treasury Securities SP500 overlay UI with a FRED-backed right-axis daily line.
+- SP500 market-context published browser artifacts under `site/data/`.
 - Aggregate static-site build command via `build-site`, including targeted source-update mode.
 - GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
 - GitHub Actions data-cache persistence for `data/cache/` with explicit cold-build guardrail.
@@ -408,7 +409,7 @@ site/data/treasury-securities-net-issuance.csv
 site/data/treasury-securities-net-issuance-metadata.json
 ```
 
-The Treasury Securities Net Issuance JSON artifact uses compact JSON `split` orientation and is currently about 4.0 MB. The page defaults to `ME`, filters by frequency and security type in JavaScript, sends only non-zero `net_issuance` points to Plotly, always shows the Plotly legend for rendered traces, shows a visible `Today` marker, reports timing diagnostics, supports shared viewport-expanded chart mode, and supports `Copy Link` share URLs that persist grouping, checked security types, and x/y axis ranges in the URL hash. The `Copy Link` action is available from both normal and expanded chart headers.
+The Treasury Securities Net Issuance JSON artifact uses compact JSON `split` orientation and is currently about 4.0 MB. The page defaults to `ME`, filters by frequency and security type in JavaScript, sends only non-zero `net_issuance` points to Plotly, always shows the Plotly legend for rendered traces, shows a visible `Today` marker, reports timing diagnostics, supports shared viewport-expanded chart mode, and supports `Copy Link` share URLs that persist grouping, checked security types, optional SP500 overlay state, x/y axis ranges, and optional SP500 right-axis range in the URL hash. The `Copy Link` action is available from both normal and expanded chart headers. The optional SP500 overlay loads `sp500.json` separately and renders a daily line on the right y-axis while Treasury bars remain grouped by the selected frequency.
 
 Static page:
 
@@ -459,7 +460,9 @@ site/data/sp500.csv
 site/data/sp500-metadata.json
 ```
 
-The SP500 JSON artifact uses compact JSON `split` orientation with `date` and `value` columns. Current artifact sizes:
+The SP500 JSON artifact uses compact JSON `split` orientation with `date` and `value` columns. The Treasury Securities Net Issuance page can load this artifact separately and render it as an optional daily right-axis overlay.
+
+Current artifact sizes:
 
 ```text
 JSON artifact: 58.2 KB
@@ -467,9 +470,9 @@ CSV artifact: 50.1 KB
 metadata JSON: 1.3 KB
 ```
 
-Published metadata records `market_context_role: daily_price_overlay`, the FRED source URL, and a rights note because the FRED `SP500` page identifies third-party copyright/licensing caveats. The current checkpoint does not change any chart UI. A later Treasury Securities checkpoint can add a checkbox and secondary-axis overlay that consumes this artifact.
+Published metadata records `market_context_role: daily_price_overlay`, the FRED source URL, and a rights note because the FRED `SP500` page identifies third-party copyright/licensing caveats.
 
-Refresh cadence note: `fred_sp500` is currently included in the existing `fred_weekly` refresh group for conservative cache maintenance. If the overlay becomes a primary user-facing feature, revisit whether SP500 should move to a separate daily post-close FRED refresh group.
+Refresh cadence note: `fred_sp500` is currently included in the existing `fred_weekly` refresh group for conservative cache maintenance. Because the overlay is now user-facing, the next checkpoint should consider whether SP500 belongs in a separate daily post-close FRED refresh group.
 ### TGA Explorer Derived Dataset
 
 Derived from:
@@ -589,7 +592,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoints are verifying that the next push-triggered Pages deployment restores the SP500-refreshed cache without source API calls, then adding the Treasury Securities SP500 overlay UI as a separate checkpoint. Live scheduled refresh validation and a future scheduled auctions refresh group also remain open.
+The next likely checkpoint is scheduled refresh policy for newly added Treasury Securities dependencies: decide whether to add a daily post-close SP500 refresh group and when to add the Treasury auctions refresh group. Live scheduled refresh validation for existing groups also remains open.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -617,5 +620,5 @@ Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dis
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
 - Scheduled refresh workflow timing should be validated with live runs on the next market day. The workflow uses UTC cron entries with Pacific/Eastern comments; daylight-saving behavior should be reviewed after observing several weeks of runs.
-- Treasury Securities Net Issuance now shows a visible `Today` marker and supports shareable hash links for grouping, checked security types, and x/y axis ranges. The remaining Treasury securities workflow gaps are scheduled auctions refresh timing and the deferred SP500 overlay UI.
+- Treasury Securities Net Issuance now shows a visible `Today` marker, supports shareable hash links for grouping, checked security types, optional SP500 overlay state, x/y axis ranges, and optional SP500 right-axis ranges. The remaining Treasury securities workflow gaps are scheduled auctions refresh timing and a daily SP500 refresh decision.
 - The FRED `SP500` artifact includes a rights note because the FRED page identifies third-party copyright/licensing caveats. Revisit that note before any commercial or paywalled redistribution path.

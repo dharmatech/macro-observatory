@@ -3,6 +3,8 @@
 
   const DATA_URL = "../../data/treasury-securities-net-issuance.json";
   const METADATA_URL = "../../data/treasury-securities-net-issuance-metadata.json";
+  const SP500_DATA_URL = "../../data/sp500.json";
+  const SP500_METADATA_URL = "../../data/sp500-metadata.json";
   const DEFAULT_FREQUENCY = "ME";
   const SHARE_STATE_VERSION = "1";
   const USD_BILLION = 1000000000;
@@ -19,13 +21,18 @@
     Note: "#16865a",
     Bond: "#c33a2b"
   };
+  const SP500_LINE_COLOR = "#293241";
   const FILTER_DEBOUNCE_MS = 80;
   const COPY_FEEDBACK_MS = 2200;
 
   let metadata = null;
+  let sp500Metadata = null;
   let rows = [];
+  let sp500Rows = [];
   let columnIndex = {};
+  let sp500ColumnIndex = {};
   let securityTypes = [];
+  let sp500Error = null;
   let applyTimer = null;
   let renderSequence = 0;
   let pendingAxisRanges = null;
@@ -37,6 +44,10 @@
     filter: null,
     trace: null,
     render: null
+  };
+  const sp500Timings = {
+    fetch: null,
+    parse: null
   };
 
   function element(id) {
@@ -85,6 +96,18 @@
     return row[requiredColumn(columnName)];
   }
 
+  function requiredSp500Column(name) {
+    if (!(name in sp500ColumnIndex)) {
+      throw new Error(`SP500 data is missing required column: ${name}`);
+    }
+    return sp500ColumnIndex[name];
+  }
+
+  function numericSp500Value(row, columnName) {
+    const value = Number(row[requiredSp500Column(columnName)]);
+    return Number.isFinite(value) ? value : null;
+  }
+
   function numericRowValue(row, columnName) {
     const value = Number(rowValue(row, columnName));
     return Number.isFinite(value) ? value : null;
@@ -116,6 +139,36 @@
 
   function sourceRows(metadataPayload) {
     return metadataPayload.source_rows || {};
+  }
+
+  function sp500Available() {
+    return sp500Metadata !== null && sp500Rows.length > 0 && sp500Error === null;
+  }
+
+  function latestSp500Row() {
+    if (sp500Rows.length === 0) {
+      return null;
+    }
+    return sp500Rows[sp500Rows.length - 1];
+  }
+
+  function renderSp500Status() {
+    const status = element("sp500-overlay-status");
+    const ui = controls();
+    if (sp500Error !== null) {
+      status.hidden = false;
+      status.textContent = "S&P 500 unavailable";
+      return;
+    }
+    if (!ui.sp500Overlay.checked) {
+      status.hidden = true;
+      status.textContent = "";
+      return;
+    }
+    const latest = latestSp500Row();
+    const seriesId = sp500Metadata && sp500Metadata.series_id ? sp500Metadata.series_id : "SP500";
+    status.hidden = false;
+    status.textContent = `S&P 500: FRED ${seriesId}, latest ${window.MacroObservatory.formatDate(latest ? latest.date : null)}`;
   }
 
   function renderSourceRows() {
@@ -204,6 +257,7 @@
       frequency: element("frequency-select"),
       reset: element("reset-button"),
       copyLink: element("treasury-securities-copy-link"),
+      sp500Overlay: element("sp500-overlay-toggle"),
       securityTypeInputs: Array.from(
         element("security-type-list").querySelectorAll("input[type='checkbox']")
       )
@@ -228,6 +282,7 @@
     ui.securityTypeInputs.forEach((input) => {
       input.checked = true;
     });
+    ui.sp500Overlay.checked = false;
   }
 
   function validAxisText(value) {
@@ -269,6 +324,7 @@
         frequency: validAxisText(params.get("freq")),
         rawTypes: null,
         hasTypes: params.has("types"),
+        showSp500: params.get("sp500") === "1",
         axisRanges: {}
       };
 
@@ -287,6 +343,12 @@
       const y1 = validAxisNumber(params.get("y1"));
       if (y0 !== null && y1 !== null && y0 !== y1) {
         state.axisRanges.y = [y0, y1];
+      }
+
+      const sp500Y0 = validAxisNumber(params.get("sp500y0"));
+      const sp500Y1 = validAxisNumber(params.get("sp500y1"));
+      if (state.showSp500 && sp500Y0 !== null && sp500Y1 !== null && sp500Y0 !== sp500Y1) {
+        state.axisRanges.y2 = [sp500Y0, sp500Y1];
       }
 
       return state;
@@ -316,9 +378,17 @@
       }
     }
 
+    if (state.showSp500 && sp500Available()) {
+      ui.sp500Overlay.checked = true;
+    }
+
     if (
       state.axisRanges
-      && (Array.isArray(state.axisRanges.x) || Array.isArray(state.axisRanges.y))
+      && (
+        Array.isArray(state.axisRanges.x)
+        || Array.isArray(state.axisRanges.y)
+        || Array.isArray(state.axisRanges.y2)
+      )
     ) {
       pendingAxisRanges = state.axisRanges;
     }
@@ -358,18 +428,29 @@
     }
 
     timings.filter = performance.now() - started;
-    return { frequency, rows: filtered, minDate, maxDate, selectedTypeList };
+    return {
+      frequency,
+      rows: filtered,
+      minDate,
+      maxDate,
+      selectedTypeList,
+      showSp500: ui.sp500Overlay.checked && sp500Available()
+    };
   }
 
   function renderDiagnostics(pointCount) {
-    element("diagnostics-bar").textContent = [
+    const parts = [
       `Rows ${window.MacroObservatory.formatInteger(pointCount)}`,
       `Data ${formatMs(timings.fetch)}`,
       `Parse ${formatMs(timings.parse)}`,
       `Filter ${formatMs(timings.filter)}`,
       `Trace ${formatMs(timings.trace)}`,
       `Render ${formatMs(timings.render)}`
-    ].join(" | ");
+    ];
+    if (sp500Available() && controls().sp500Overlay.checked) {
+      parts.splice(3, 0, `SP500 ${formatMs((sp500Timings.fetch || 0) + (sp500Timings.parse || 0))}`);
+    }
+    element("diagnostics-bar").textContent = parts.join(" | ");
   }
 
   function showGuardrail(message) {
@@ -406,10 +487,32 @@
     setText("metric-chart-points", window.MacroObservatory.formatInteger(pointCount));
     setText("metric-frequency", formatFrequency(filtered.frequency));
     setText("control-point-count", `${window.MacroObservatory.formatInteger(pointCount)} points`);
+    const overlayLabel = filtered.showSp500 ? ", S&P 500 overlay" : "";
     setText(
       "filtered-range-label",
-      `${formatFrequency(filtered.frequency)}, ${selectedTypeLabel(filtered.selectedTypeList)}, ${window.MacroObservatory.formatInteger(pointCount)} non-zero points, ${window.MacroObservatory.formatDate(labelMin)} to ${window.MacroObservatory.formatDate(labelMax)}`
+      `${formatFrequency(filtered.frequency)}, ${selectedTypeLabel(filtered.selectedTypeList)}, ${window.MacroObservatory.formatInteger(pointCount)} non-zero points, ${window.MacroObservatory.formatDate(labelMin)} to ${window.MacroObservatory.formatDate(labelMax)}${overlayLabel}`
     );
+    renderSp500Status();
+  }
+
+  function buildSp500Trace() {
+    return {
+      x: sp500Rows.map((row) => row.date),
+      y: sp500Rows.map((row) => row.value),
+      name: "S&P 500",
+      type: "scatter",
+      mode: "lines",
+      yaxis: "y2",
+      line: {
+        color: SP500_LINE_COLOR,
+        width: 2
+      },
+      hovertemplate: [
+        "S&P 500",
+        "%{x}",
+        "Close: %{y:,.2f}<extra></extra>"
+      ].join("<br>")
+    };
   }
 
   function buildTraces(filtered) {
@@ -455,6 +558,10 @@
         ].join("<br>")
       };
     });
+
+    if (filtered.showSp500) {
+      traces.push(buildSp500Trace());
+    }
 
     timings.trace = performance.now() - started;
     return traces;
@@ -505,11 +612,11 @@
 
   function chartLayout(filtered) {
     const marker = todayMarker(filtered);
-    return {
+    const layout = {
       autosize: true,
       barmode: "relative",
       bargap: filtered.frequency === "D" ? 0.04 : 0.08,
-      margin: { t: 32, r: 28, b: 60, l: 72 },
+      margin: { t: 32, r: filtered.showSp500 ? 86 : 28, b: 60, l: 72 },
       paper_bgcolor: "#ffffff",
       plot_bgcolor: "#ffffff",
       font: {
@@ -543,7 +650,7 @@
         }
       },
       yaxis: {
-        title: "Billions of U.S. dollars",
+        title: "Net issuance, USD billions",
         showgrid: true,
         gridcolor: "#e7ebf1",
         zerolinecolor: "#aab4c2",
@@ -551,10 +658,21 @@
         ticksuffix: "B",
         tickformat: ",.0f"
       },
+      yaxis2: filtered.showSp500
+        ? {
+          title: "S&P 500, index points",
+          overlaying: "y",
+          side: "right",
+          showgrid: false,
+          zeroline: false,
+          tickformat: ",.0f"
+        }
+        : { visible: false },
       hovermode: "x unified",
       shapes: marker.shapes,
       annotations: marker.annotations
     };
+    return layout;
   }
 
   function chartConfig() {
@@ -578,6 +696,10 @@
     if (Array.isArray(pendingAxisRanges.y)) {
       update["yaxis.range[0]"] = pendingAxisRanges.y[0];
       update["yaxis.range[1]"] = pendingAxisRanges.y[1];
+    }
+    if (Array.isArray(pendingAxisRanges.y2) && controls().sp500Overlay.checked) {
+      update["yaxis2.range[0]"] = pendingAxisRanges.y2[0];
+      update["yaxis2.range[1]"] = pendingAxisRanges.y2[1];
     }
     pendingAxisRanges = null;
 
@@ -628,6 +750,7 @@
       pendingAxisRanges = null;
       purgeChart();
       showGuardrail("No non-zero net issuance points match the current controls.");
+      renderSp500Status();
       renderDiagnostics(0);
       return;
     }
@@ -638,6 +761,7 @@
       showGuardrail(
         `Filtered result has ${window.MacroObservatory.formatInteger(filtered.rows.length)} chart points. Narrow controls to ${window.MacroObservatory.formatInteger(maxPoints)} points or fewer before rendering.`
       );
+      renderSp500Status();
       renderDiagnostics(filtered.rows.length);
       return;
     }
@@ -672,6 +796,17 @@
         ranges.y = [y0, y1];
       }
     }
+    if (
+      controls().sp500Overlay.checked
+      && fullLayout.yaxis2
+      && Array.isArray(fullLayout.yaxis2.range)
+    ) {
+      const y20 = Number(fullLayout.yaxis2.range[0]);
+      const y21 = Number(fullLayout.yaxis2.range[1]);
+      if (Number.isFinite(y20) && Number.isFinite(y21) && y20 !== y21) {
+        ranges.y2 = [y20, y21];
+      }
+    }
     return ranges;
   }
 
@@ -686,6 +821,9 @@
     params.set("v", SHARE_STATE_VERSION);
     params.set("freq", ui.frequency.value);
     params.set("types", selectedSecurityTypeList(ui).join(","));
+    if (ui.sp500Overlay.checked && sp500Available()) {
+      params.set("sp500", "1");
+    }
     if (Array.isArray(ranges.x)) {
       params.set("x0", ranges.x[0]);
       params.set("x1", ranges.x[1]);
@@ -693,6 +831,10 @@
     if (Array.isArray(ranges.y)) {
       params.set("y0", axisNumberForUrl(ranges.y[0]));
       params.set("y1", axisNumberForUrl(ranges.y[1]));
+    }
+    if (ui.sp500Overlay.checked && Array.isArray(ranges.y2)) {
+      params.set("sp500y0", axisNumberForUrl(ranges.y2[0]));
+      params.set("sp500y1", axisNumberForUrl(ranges.y2[1]));
     }
 
     const url = new URL(window.location.href);
@@ -770,10 +912,16 @@
     resetControls();
     applySharedControlState(parseSharedState());
     const ui = controls();
+    if (!sp500Available()) {
+      ui.sp500Overlay.checked = false;
+      ui.sp500Overlay.disabled = true;
+    }
+    renderSp500Status();
     ui.frequency.addEventListener("change", scheduleApplyFilters);
     ui.securityTypeInputs.forEach((input) => {
       input.addEventListener("change", scheduleApplyFilters);
     });
+    ui.sp500Overlay.addEventListener("change", scheduleApplyFilters);
     ui.reset.addEventListener("click", () => {
       pendingAxisRanges = null;
       resetControls();
@@ -809,18 +957,53 @@
     );
   }
 
-  async function fetchSplitJson(url) {
+  function decodeSp500Payload(payload) {
+    if (!payload || !Array.isArray(payload.columns) || !Array.isArray(payload.data)) {
+      throw new Error("SP500 JSON artifact is not in split orientation.");
+    }
+    sp500ColumnIndex = {};
+    payload.columns.forEach((column, index) => {
+      sp500ColumnIndex[column] = index;
+    });
+    ["date", "value"].forEach(requiredSp500Column);
+    const dateIndex = requiredSp500Column("date");
+    sp500Rows = payload.data
+      .map((row) => ({
+        date: String(row[dateIndex] || ""),
+        value: numericSp500Value(row, "value")
+      }))
+      .filter((row) => row.date && row.value !== null)
+      .sort((left, right) => left.date.localeCompare(right.date));
+  }
+
+  async function fetchSplitJson(url, timingTarget) {
     const fetchStarted = performance.now();
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Request failed for ${url}: ${response.status}`);
     }
     const text = await response.text();
-    timings.fetch = performance.now() - fetchStarted;
+    timingTarget.fetch = performance.now() - fetchStarted;
     const parseStarted = performance.now();
     const payload = JSON.parse(text);
-    timings.parse = performance.now() - parseStarted;
+    timingTarget.parse = performance.now() - parseStarted;
     return payload;
+  }
+
+  async function loadSp500Artifacts() {
+    try {
+      const [metadataPayload, dataPayload] = await Promise.all([
+        window.MacroObservatory.fetchJson(SP500_METADATA_URL),
+        fetchSplitJson(SP500_DATA_URL, sp500Timings)
+      ]);
+      sp500Metadata = metadataPayload;
+      decodeSp500Payload(dataPayload);
+    } catch (error) {
+      sp500Error = error && error.message ? error.message : String(error);
+      sp500Metadata = null;
+      sp500Rows = [];
+      sp500ColumnIndex = {};
+    }
   }
 
   async function initialize() {
@@ -843,8 +1026,10 @@
     try {
       metadata = await window.MacroObservatory.fetchJson(METADATA_URL);
       renderMetadata();
-      element("loading-row").textContent = "Loading Treasury securities data artifact...";
-      const payload = await fetchSplitJson(DATA_URL);
+      element("loading-row").textContent = "Loading Treasury securities and market context artifacts...";
+      const sp500Promise = loadSp500Artifacts();
+      const payload = await fetchSplitJson(DATA_URL, timings);
+      await sp500Promise;
       decodePayload(payload);
       setupControls();
       window.MacroObservatory.hideLoading();
