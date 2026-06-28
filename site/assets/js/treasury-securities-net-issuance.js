@@ -104,7 +104,11 @@
   }
 
   function numericSp500Value(row, columnName) {
-    const value = Number(row[requiredSp500Column(columnName)]);
+    const rawValue = row[requiredSp500Column(columnName)];
+    if (rawValue === null || rawValue === undefined || rawValue === "" || rawValue === ".") {
+      return null;
+    }
+    const value = Number(rawValue);
     return Number.isFinite(value) ? value : null;
   }
 
