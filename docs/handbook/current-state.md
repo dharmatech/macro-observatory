@@ -380,7 +380,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is validating `.github/workflows/scheduled-refresh.yml` with a manual dispatch and then watching the first live Monday RRP and Treasury scheduled runs.
+The next likely checkpoint is watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -392,7 +392,9 @@ Targeted source-update mode is implemented. `build-site --source-dataset ...` va
 
 Local targeted validation completed on June 28, 2026. `uv run macro-observatory build-site --source-dataset nyfed_rrp` ran successfully, reported `source update mode: targeted`, selected `nyfed_rrp`, updated `1` source dataset, rebuilt `3` derived datasets, and published `2` browser artifacts.
 
-Scheduled refresh workflow implementation is now present. Manual dispatch validation and live Monday schedule validation are the next checks.
+Manual scheduled refresh validation completed on June 28, 2026. Workflow run `28318271888` dispatched `rrp_daily`, restored matched cache key `macro-observatory-data-cache-v1-Linux-28316049169`, selected `nyfed_rrp`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 9 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28318271888`, deployed successfully, and returned HTTP 200 for the root page, both current dashboard pages, and sampled JSON data artifacts.
+
+Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dispatch validation completed successfully. Live Monday schedule validation is the next check.
 
 
 ## Known Open Questions

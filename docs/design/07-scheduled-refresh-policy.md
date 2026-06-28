@@ -1,6 +1,6 @@
 # Scheduled Refresh Policy
 
-Status: implemented, pending live schedule validation
+Status: implemented; manual dispatch validated; pending live schedule validation
 
 This design note defines the initial scheduled data-refresh policy for Macro Observatory on GitHub Actions.
 
@@ -183,4 +183,6 @@ The targeted `build-site --source-dataset ...` checkpoint is implemented and loc
 
 The scheduled workflow implementation checkpoint adds `scheduled-refresh.yml` with the three initial refresh groups and cache-miss guardrails.
 
-The next validation checkpoint is to manually dispatch at least one refresh group after the workflow is pushed to the default branch, then watch the first live Monday RRP and Treasury scheduled runs. Validation should confirm that scheduled runs restore an existing cache, run targeted source updates, save a new cache snapshot, deploy the site, and never cold-build from source APIs.
+Manual dispatch validation completed on June 28, 2026. Run `28318271888` dispatched `rrp_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28316049169`, selected `nyfed_rrp`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 9 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28318271888`, deployed successfully, and returned HTTP 200 for the public root page, both current dashboard pages, and sampled data artifacts.
+
+The next validation checkpoint is to watch the first live Monday RRP and Treasury scheduled runs. Validation should confirm that schedule-triggered runs behave like the manual dispatch: restore an existing cache, run targeted source updates, save a new cache snapshot, deploy the site, and never cold-build from source APIs.
