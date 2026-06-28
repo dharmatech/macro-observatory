@@ -593,11 +593,13 @@ dd {
   margin-top: 0;
 }
 
-.tga-chart-frame {
+.tga-chart-frame,
+.securities-chart-frame {
   min-height: 630px;
 }
 
-.tga-chart {
+.tga-chart,
+.securities-chart {
   height: 610px;
 }
 
@@ -646,11 +648,13 @@ dd {
     grid-template-columns: 1fr;
   }
 
-  .tga-chart-frame {
+  .tga-chart-frame,
+  .securities-chart-frame {
     min-height: 460px;
   }
 
-  .tga-chart {
+  .tga-chart,
+  .securities-chart {
     height: 440px;
   }
 }

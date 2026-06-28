@@ -54,6 +54,8 @@ Current implementation priorities:
 - Derived TGA Explorer dataset: `treasury_dts_deposits_withdrawals_operating_cash_explorer`.
 - TGA Explorer published browser artifacts under `site/data/`.
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
+- Treasury Securities Net Issuance published browser artifacts under `site/data/`.
+- Treasury Securities Net Issuance static page UI under `site/pages/treasury-securities-net-issuance/`.
 - Aggregate static-site build command via `build-site`, including targeted source-update mode.
 - GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
 - GitHub Actions data-cache persistence for `data/cache/` with explicit cold-build guardrail.
@@ -61,7 +63,7 @@ Current implementation priorities:
 - Targeted source-update support via repeated `build-site --source-dataset ...` flags.
 - Scheduled data refresh workflow at `.github/workflows/scheduled-refresh.yml`.
 
-The TGA Explorer page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, push-triggered cache-only deployment checkpoint, targeted source-update checkpoint, and scheduled refresh workflow implementation checkpoint are complete. Live schedule validation remains next.
+The TGA Explorer page UI checkpoint, Treasury Securities Net Issuance page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, push-triggered cache-only deployment checkpoint, targeted source-update checkpoint, and scheduled refresh workflow implementation checkpoint are complete. Live schedule validation remains next.
 
 ## Implemented Architecture
 
@@ -87,10 +89,12 @@ Current static-site files:
 - `site/index.html`
 - `site/pages/fed-net-liquidity/index.html`
 - `site/pages/tga-explorer/index.html`
+- `site/pages/treasury-securities-net-issuance/index.html`
 - `site/assets/css/site.css`
 - `site/assets/js/site.js`
 - `site/assets/js/fed-net-liquidity.js`
 - `site/assets/js/tga-explorer.js`
+- `site/assets/js/treasury-securities-net-issuance.js`
 
 Generated data under `data/cache/` and `site/data/` is ignored by git. Manual GitHub Pages deployment restores `data/cache/` from GitHub Actions cache, refreshes source data from APIs, regenerates derived and browser artifacts, saves a new data-cache snapshot after a successful build, and uploads `site/` as the Pages artifact. Push-triggered deployment restores the same cache, runs `build-site --from-cache`, uploads `site/`, and does not call source APIs or save a new data-cache snapshot. Scheduled refresh deployment restores the same cache, refuses cache misses, runs targeted source updates by refresh group, saves a new cache snapshot after success, and deploys `site/`.
 
@@ -166,6 +170,7 @@ Publish browser-facing artifacts:
 ```powershell
 uv run macro-observatory publish fed_net_liquidity
 uv run macro-observatory publish treasury_dts_deposits_withdrawals_operating_cash_explorer
+uv run macro-observatory publish treasury_securities_net_issuance
 ```
 
 Inspect data and storage:
@@ -207,6 +212,7 @@ uv run mypy .
 node --check site/assets/js/site.js
 node --check site/assets/js/fed-net-liquidity.js
 node --check site/assets/js/tga-explorer.js
+node --check site/assets/js/treasury-securities-net-issuance.js
 ```
 
 ## Current Data Checkpoints
@@ -323,7 +329,7 @@ rows fetched: 21
 rows after: 11,022
 ```
 
-This source dataset is intentionally not wired into aggregate `build-site`, GitHub Pages deployment, or scheduled refresh yet.
+This source dataset is wired into aggregate `build-site` and GitHub Pages deployment so the Treasury Securities Net Issuance page can publish from cache. Scheduled auctions refresh is intentionally still a future checkpoint.
 
 ### Treasury Securities Net Issuance Derived Dataset
 
@@ -379,7 +385,34 @@ QE       921
 YE       234
 ```
 
-This derived dataset is intentionally not wired into aggregate `build-site`, GitHub Pages deployment, browser artifacts, or scheduled refresh yet. The next implementation step should publish a compact browser artifact and then build the static page.
+Non-zero `net_issuance` chart points by frequency:
+
+```text
+D      5,474
+W      4,508
+ME     1,666
+QE       680
+YE       181
+```
+
+Published artifacts:
+
+```text
+site/data/treasury-securities-net-issuance.json
+site/data/treasury-securities-net-issuance.csv
+site/data/treasury-securities-net-issuance-metadata.json
+```
+
+The Treasury Securities Net Issuance JSON artifact uses compact JSON `split` orientation and is currently about 4.0 MB. The page defaults to `ME`, filters by frequency and security type in JavaScript, sends only non-zero `net_issuance` points to Plotly, shows a visible `Today` marker, reports timing diagnostics, and supports shared viewport-expanded chart mode.
+
+Static page:
+
+```text
+site/pages/treasury-securities-net-issuance/index.html
+site/assets/js/treasury-securities-net-issuance.js
+```
+
+This derived dataset is wired into aggregate `build-site`, GitHub Pages deployment, and browser artifact publishing. Scheduled auctions refresh is intentionally still a future checkpoint.
 
 ### TGA Explorer Derived Dataset
 
@@ -460,14 +493,14 @@ The legacy default `transaction_fytd_amt` minimum of `100000` currently filters 
 
 ## Current Storage Snapshot
 
-A live `uv run macro-observatory storage-report` after the Treasury Securities Net Issuance derived checkpoint showed:
+A live `uv run macro-observatory storage-report` after the Treasury Securities Net Issuance page checkpoint showed:
 
 ```text
 source cache         6,140.5 KB
 derived cache        4,522.6 KB
 metadata                34.1 KB
-site data           63,674.4 KB
-overall             74,371.6 KB
+site data           71,062.2 KB
+overall             81,759.4 KB
 ```
 
 Notable generated artifact sizes:
@@ -480,6 +513,9 @@ data/cache/derived/treasury_securities_net_issuance.parquet                     
 site/data/tga-explorer.json                                                          32,359.0 KB
 site/data/tga-explorer.csv                                                           29,275.6 KB
 site/data/tga-explorer-metadata.json                                                      2.6 KB
+site/data/treasury-securities-net-issuance.json                                       4,033.4 KB
+site/data/treasury-securities-net-issuance.csv                                        3,351.7 KB
+site/data/treasury-securities-net-issuance-metadata.json                                  2.7 KB
 ```
 
 ## Secrets
@@ -494,7 +530,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoints are watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`, then publishing browser artifacts and building the static page for Treasury Securities Net Issuance.
+The next likely checkpoints are intentionally refreshing the GitHub Actions data cache after the Treasury Securities page lands, watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`, and then adding a scheduled auctions refresh group after the preferred Treasury auctions update time is confirmed.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -504,7 +540,7 @@ Deploy-on-push is re-enabled as a cache-only path. Push runs restore the existin
 
 Targeted source-update mode is implemented. `build-site --source-dataset ...` validates the full current source cache first, updates only selected source datasets, rebuilds all derived and browser artifacts, and rejects `--from-cache` conflicts, derived dataset IDs, and unknown dataset IDs.
 
-Local targeted validation completed on June 28, 2026. `uv run macro-observatory build-site --source-dataset nyfed_rrp` ran successfully, reported `source update mode: targeted`, selected `nyfed_rrp`, updated `1` source dataset, rebuilt `3` derived datasets, and published `2` browser artifacts.
+Local targeted validation completed on June 28, 2026. `uv run macro-observatory build-site --source-dataset nyfed_rrp` ran successfully, reported `source update mode: targeted`, selected `nyfed_rrp`, updated `1` source dataset, rebuilt `3` derived datasets, and published `2` browser artifacts. After the Treasury Securities page checkpoint, local `uv run macro-observatory build-site --from-cache` rebuilt `4` derived datasets and published `3` browser artifacts with `0` source updates.
 
 Manual scheduled refresh validation completed on June 28, 2026. Workflow run `28318271888` dispatched `rrp_daily`, restored matched cache key `macro-observatory-data-cache-v1-Linux-28316049169`, selected `nyfed_rrp`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 9 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28318271888`, deployed successfully, and returned HTTP 200 for the root page, both current dashboard pages, and sampled JSON data artifacts.
 
@@ -520,4 +556,4 @@ Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dis
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
 - Scheduled refresh workflow timing should be validated with live runs on the next market day. The workflow uses UTC cron entries with Pacific/Eastern comments; daylight-saving behavior should be reviewed after observing several weeks of runs.
-- Treasury Securities Net Issuance should show a visible `Today` marker in the future page checkpoint so future scheduled maturities are easy to distinguish from historical issuance and maturities.
+- Treasury Securities Net Issuance now shows a visible `Today` marker. The remaining Treasury securities workflow gap is scheduled auctions refresh timing.

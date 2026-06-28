@@ -1,6 +1,6 @@
 # Treasury Securities Net Issuance Milestone
 
-Status: derived dataset checkpoint implemented
+Status: browser artifact and static page checkpoint implemented
 
 This document defines the next Macro Observatory implementation milestone: build a static Treasury Securities Net Issuance page inspired by the legacy Streamlit `Treasury Securities Net Issuance Resample` page.
 
@@ -238,6 +238,50 @@ Initial chart:
 
 The browser artifact should publish the precomputed frequency rows from the derived cache. The page can switch among day, week, month end, quarter end, or year end without reimplementing pandas resampling in JavaScript.
 
+## Browser Artifact And Page Checkpoint Result
+
+The browser artifact and static page checkpoint is implemented and locally validated.
+
+Local result on June 28, 2026:
+
+```text
+published rows: 99,717
+JSON artifact: 4,033.4 KB
+CSV artifact: 3,351.7 KB
+metadata JSON: 2.7 KB
+default frequency: ME
+security types: Bill, Bond, Note
+```
+
+Non-zero `net_issuance` chart points by frequency:
+
+```text
+D      5,474
+W      4,508
+ME     1,666
+QE       680
+YE       181
+```
+
+The page uses compact JSON `split` orientation, decodes the artifact once, and filters by frequency and security type in JavaScript. It sends only non-zero `net_issuance` points to Plotly so daily mode remains practical while the artifact and CSV preserve all rows.
+
+Implemented page paths:
+
+```text
+site/pages/treasury-securities-net-issuance/index.html
+site/assets/js/treasury-securities-net-issuance.js
+```
+
+Implemented artifact paths:
+
+```text
+site/data/treasury-securities-net-issuance.json
+site/data/treasury-securities-net-issuance.csv
+site/data/treasury-securities-net-issuance-metadata.json
+```
+
+Local `build-site --from-cache` now reports `4` derived datasets, `3` published datasets, and `0` source updates.
+
 ## Metadata
 
 Useful metadata fields:
@@ -310,15 +354,15 @@ This checkpoint stopped after validating row counts, frequency ranges, null hand
 
 ### 3. Browser Artifact Checkpoint
 
-Complete when Macro Observatory can publish JSON, CSV, and metadata companions for `treasury-securities-net-issuance` and report file sizes in `storage-report`.
+Completed. Macro Observatory can publish JSON, CSV, and metadata companions for `treasury-securities-net-issuance` and report file sizes in `storage-report`.
 
 ### 4. Page Checkpoint
 
-Complete when the static site can show the Treasury Securities Net Issuance page, render the Plotly bar chart, switch grouping among `D`, `W`, `ME`, `QE`, and `YE`, default to `ME`, use shared chart expand/restore behavior, and link from the site index.
+Completed. The static site can show the Treasury Securities Net Issuance page, render the Plotly bar chart, switch grouping among `D`, `W`, `ME`, `QE`, and `YE`, default to `ME`, show security-type toggles, show a `Today` marker, report subtle timing diagnostics, use shared chart expand/restore behavior, and link from the site index.
 
 ### 5. Aggregate Build And Actions Cache Checkpoint
 
-Complete when aggregate `build-site` includes the new source, derived dataset, publish artifact, and page; local `build-site --from-cache` works; GitHub Actions cache is intentionally refreshed with the new files; and push-triggered Pages deployment restores the refreshed cache without source API calls.
+Partially completed locally. Aggregate `build-site` includes the new source, derived dataset, publish artifact, and page, and local `build-site --from-cache` works with the local cache. The remaining remote step is to intentionally refresh the GitHub Actions data cache with the new auctions source before relying on push-triggered Pages deployments for this page.
 
 ## Non-Goals
 
@@ -331,7 +375,6 @@ Complete when aggregate `build-site` includes the new source, derived dataset, p
 
 ## Open Questions
 
-- Should the first static page include only `net_issuance`, or expose `issued` and `maturing` as optional chart metrics?
+- Should a later revision expose `issued` and `maturing` as optional chart metrics?
 - Should the chart mode later support line and cumulative views from the adjacent legacy page?
-- What is the best visual style for the `Today` marker on the future static page?
 - What is the best scheduled refresh time for the auctions endpoint after current Treasury publishing behavior is checked?

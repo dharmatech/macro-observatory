@@ -10,6 +10,7 @@ from macro_observatory.cache import replace_dataset
 from macro_observatory.derived import build_derived_dataset
 from macro_observatory.publish import PublishDatasetError, publish_dataset
 from macro_observatory.registry import get_dataset_spec
+from macro_observatory.sources.treasury import TREASURY_AUCTIONS_QUERY_COLUMNS
 
 
 def fred_rows(series_id: str, rows: list[tuple[str, float]]) -> pd.DataFrame:
@@ -104,6 +105,86 @@ def write_tga_explorer_input(tmp_path: Path) -> None:
     )
 
 
+def auctions_query_row(
+    record_date: str,
+    cusip: str,
+    *,
+    security_type: str,
+    issue_date: str,
+    maturity_date: str,
+    total_accepted: str,
+    auction_date: str = "2024-01-01",
+) -> dict[str, str]:
+    row = {column: "null" for column in TREASURY_AUCTIONS_QUERY_COLUMNS}
+    row.update(
+        {
+            "record_date": record_date,
+            "cusip": cusip,
+            "security_type": security_type,
+            "auction_date": auction_date,
+            "issue_date": issue_date,
+            "maturity_date": maturity_date,
+            "total_accepted": total_accepted,
+        }
+    )
+    return row
+
+
+def treasury_auctions_rows() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            auctions_query_row(
+                "2024-01-01",
+                "A",
+                security_type="Note",
+                issue_date="2024-01-02",
+                maturity_date="2024-01-07",
+                total_accepted="100",
+            ),
+            auctions_query_row(
+                "2024-01-01",
+                "B",
+                security_type="TIPS Note",
+                issue_date="2024-01-02",
+                maturity_date="2024-02-29",
+                total_accepted="50",
+            ),
+            auctions_query_row(
+                "2024-01-01",
+                "C",
+                security_type="CMB",
+                issue_date="2024-01-31",
+                maturity_date="2024-02-01",
+                total_accepted="30",
+            ),
+            auctions_query_row(
+                "2024-02-01",
+                "D",
+                security_type="Bond",
+                issue_date="2024-02-15",
+                maturity_date="2025-02-15",
+                total_accepted="200",
+            ),
+            auctions_query_row(
+                "2024-02-01",
+                "E",
+                security_type="FRN Note",
+                issue_date="2024-02-15",
+                maturity_date="2026-02-15",
+                total_accepted="null",
+            ),
+        ]
+    )
+
+
+def write_treasury_securities_input(tmp_path: Path) -> None:
+    replace_dataset(
+        get_dataset_spec("treasury_od_auctions_query", tmp_path),
+        treasury_auctions_rows(),
+        source_metadata={"endpoint_url": "https://example.test/auctions"},
+    )
+
+
 def test_publish_fed_net_liquidity_requires_derived_cache(tmp_path: Path) -> None:
     with pytest.raises(PublishDatasetError) as exc_info:
         publish_dataset("fed_net_liquidity", data_dir=tmp_path, site_dir=tmp_path / "site")
@@ -170,6 +251,72 @@ def test_publish_fed_net_liquidity_writes_browser_artifacts(tmp_path: Path) -> N
     ]
     assert metadata["series"]["fed_net_liquidity"]["label"] == "Fed Net Liquidity"
     assert "cache_path" not in metadata
+
+
+def test_publish_treasury_securities_net_issuance_writes_browser_artifacts(
+    tmp_path: Path,
+) -> None:
+    write_treasury_securities_input(tmp_path)
+    build_derived_dataset("treasury_securities_net_issuance", data_dir=tmp_path)
+
+    result = publish_dataset(
+        "treasury_securities_net_issuance",
+        data_dir=tmp_path,
+        site_dir=tmp_path / "site",
+    )
+
+    assert result.dataset_id == "treasury_securities_net_issuance"
+    assert result.output_dir == tmp_path / "site" / "data"
+    assert result.json_path == tmp_path / "site" / "data" / "treasury-securities-net-issuance.json"
+    assert result.csv_path == tmp_path / "site" / "data" / "treasury-securities-net-issuance.csv"
+    assert (
+        result.metadata_path
+        == tmp_path / "site" / "data" / "treasury-securities-net-issuance-metadata.json"
+    )
+
+    with result.json_path.open("r", encoding="utf-8") as f:
+        payload = json.load(f)
+    assert payload["columns"] == [
+        "frequency",
+        "date",
+        "security_type",
+        "issued",
+        "maturing",
+        "net_issuance",
+    ]
+    assert ["ME", "2024-01-01", "Note", 150.0, 100.0, 50.0] in payload["data"]
+    assert ["ME", "2024-02-01", "Bill", 0.0, 30.0, -30.0] in payload["data"]
+    assert ["YE", "2025-12-31", "Bond", 0.0, 200.0, -200.0] in payload["data"]
+
+    csv_df = pd.read_csv(result.csv_path)
+    assert csv_df.columns.tolist() == [
+        "frequency",
+        "date",
+        "security_type",
+        "issued",
+        "maturing",
+        "net_issuance",
+    ]
+
+    with result.metadata_path.open("r", encoding="utf-8") as f:
+        metadata = json.load(f)
+    assert metadata["schema_version"] == 1
+    assert metadata["dataset_id"] == "treasury_securities_net_issuance"
+    assert metadata["row_count"] == result.rows_published
+    assert metadata["json_orientation"] == "split"
+    assert metadata["source_dataset_ids"] == ["treasury_od_auctions_query"]
+    assert metadata["source_endpoint"] == "https://example.test/auctions"
+    assert metadata["source_cache_file"] == "treasury_od_auctions_query.parquet"
+    assert metadata["source_row_count"] == 5
+    assert metadata["valid_total_accepted_rows"] == 4
+    assert metadata["null_total_accepted_rows"] == 1
+    assert metadata["frequencies"] == ["D", "W", "ME", "QE", "YE"]
+    assert metadata["default_frequency"] == "ME"
+    assert metadata["security_types"] == ["Bill", "Bond", "Note"]
+    assert metadata["primary_metric"] == "net_issuance"
+    assert metadata["render_guardrail"] == {"max_points": 25000}
+    assert metadata["series"]["net_issuance"]["label"] == "Net Issuance"
+    assert "Future maturity dates" in metadata["future_maturity_policy"]
 
 
 def test_publish_fed_net_liquidity_is_deterministic_for_same_cache(tmp_path: Path) -> None:

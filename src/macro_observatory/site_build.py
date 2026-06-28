@@ -20,15 +20,18 @@ SOURCE_DATASET_IDS = (
     "nyfed_rrp",
     "treasury_dts_operating_cash_balance",
     "treasury_dts_deposits_withdrawals_operating_cash",
+    "treasury_od_auctions_query",
 )
 DERIVED_DATASET_IDS = (
     "treasury_tga",
     "treasury_dts_deposits_withdrawals_operating_cash_explorer",
+    "treasury_securities_net_issuance",
     "fed_net_liquidity",
 )
 PUBLISH_DATASET_IDS = (
     "fed_net_liquidity",
     "treasury_dts_deposits_withdrawals_operating_cash_explorer",
+    "treasury_securities_net_issuance",
 )
 SourceUpdateMode = Literal["update", "targeted", "from-cache"]
 

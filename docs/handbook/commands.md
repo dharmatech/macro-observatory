@@ -399,6 +399,45 @@ Use a different static-site output directory when needed:
 uv run macro-observatory publish fed_net_liquidity --site-dir scratch-site
 ```
 
+## Publish Treasury Securities Net Issuance Artifacts
+
+Publish browser-facing artifacts from the derived Treasury Securities Net Issuance cache:
+
+```powershell
+uv run macro-observatory publish treasury_securities_net_issuance
+```
+
+This command reads:
+
+```text
+data/cache/derived/treasury_securities_net_issuance.parquet
+data/cache/metadata/treasury_securities_net_issuance.json
+```
+
+and writes generated static-site artifacts:
+
+```text
+site/data/treasury-securities-net-issuance.json
+site/data/treasury-securities-net-issuance.csv
+site/data/treasury-securities-net-issuance-metadata.json
+```
+
+The JSON artifact uses compact split orientation and includes precomputed `D`, `W`, `ME`, `QE`, and `YE` rows. The browser page defaults to `ME`, filters by frequency and security type in JavaScript, and sends only non-zero `net_issuance` points to Plotly.
+
+`site/data/` is generated output and is ignored by git.
+
+If the derived cache is missing, run this first:
+
+```powershell
+uv run macro-observatory build-derived treasury_securities_net_issuance
+```
+
+Use a different static-site output directory when needed:
+
+```powershell
+uv run macro-observatory publish treasury_securities_net_issuance --site-dir scratch-site
+```
+
 ## Publish TGA Explorer Artifacts
 
 Publish browser-facing artifacts from the derived TGA Explorer cache:
@@ -457,6 +496,7 @@ The root page lists available static pages. Current dashboard pages are:
 ```text
 http://localhost:8000/pages/fed-net-liquidity/
 http://localhost:8000/pages/tga-explorer/
+http://localhost:8000/pages/treasury-securities-net-issuance/
 ```
 
 The Fed Net Liquidity page loads these published artifacts:
@@ -473,6 +513,13 @@ site/data/tga-explorer.json
 site/data/tga-explorer-metadata.json
 ```
 
+The Treasury Securities Net Issuance page loads these published artifacts:
+
+```text
+site/data/treasury-securities-net-issuance.json
+site/data/treasury-securities-net-issuance-metadata.json
+```
+
 If the Fed Net Liquidity files are missing or stale, run this first:
 
 ```powershell
@@ -483,6 +530,12 @@ If the TGA Explorer files are missing or stale, run this first:
 
 ```powershell
 uv run macro-observatory publish treasury_dts_deposits_withdrawals_operating_cash_explorer
+```
+
+If the Treasury Securities Net Issuance files are missing or stale, run this first:
+
+```powershell
+uv run macro-observatory publish treasury_securities_net_issuance
 ```
 
 Use a different site directory or port when needed:
@@ -506,7 +559,7 @@ This command updates the current source datasets, builds the current derived dat
 site/.nojekyll
 ```
 
-The command currently builds the Fed Net Liquidity page and the TGA Explorer page. It uses public network APIs, so it may take a while on a cold cache.
+The command currently builds the Fed Net Liquidity page, the TGA Explorer page, and the Treasury Securities Net Issuance page. It uses public network APIs, so it may take a while on a cold cache.
 
 For the official manual GitHub Pages source-update policy, require the FRED API key explicitly:
 
@@ -527,6 +580,7 @@ Update selected source caches and then rebuild all current derived caches and br
 ```powershell
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
+uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
 uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```
 
@@ -672,6 +726,7 @@ Equivalent local commands for the three refresh groups:
 ```powershell
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
+uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
 uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```
 
@@ -868,6 +923,7 @@ uv run macro-observatory --data-dir scratch-data build-derived treasury_securiti
 uv run macro-observatory --data-dir scratch-data build-derived fed_net_liquidity
 uv run macro-observatory --data-dir scratch-data publish fed_net_liquidity --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data publish treasury_dts_deposits_withdrawals_operating_cash_explorer --site-dir scratch-site
+uv run macro-observatory --data-dir scratch-data publish treasury_securities_net_issuance --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data storage-report --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data info nyfed_rrp
 uv run macro-observatory --data-dir scratch-data info treasury_dts_operating_cash_balance

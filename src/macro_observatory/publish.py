@@ -22,7 +22,10 @@ FED_NET_LIQUIDITY_DATASET_ID = "fed_net_liquidity"
 FED_NET_LIQUIDITY_ARTIFACT_STEM = "fed-net-liquidity"
 TGA_EXPLORER_DATASET_ID = "treasury_dts_deposits_withdrawals_operating_cash_explorer"
 TGA_EXPLORER_ARTIFACT_STEM = "tga-explorer"
+TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID = "treasury_securities_net_issuance"
+TREASURY_SECURITIES_NET_ISSUANCE_ARTIFACT_STEM = "treasury-securities-net-issuance"
 TGA_EXPLORER_RENDER_GUARDRAIL_ROWS = 10_000
+TREASURY_SECURITIES_RENDER_GUARDRAIL_POINTS = 25_000
 FED_NET_LIQUIDITY_COLUMNS = (
     "date",
     "walcl",
@@ -44,6 +47,14 @@ TGA_EXPLORER_COLUMNS = (
     "transaction_mtd_amt",
     "transaction_fytd_amt",
 )
+TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS = (
+    "frequency",
+    "date",
+    "security_type",
+    "issued",
+    "maturing",
+    "net_issuance",
+)
 FED_NET_LIQUIDITY_SERIES: dict[str, dict[str, str]] = {
     "walcl": {"label": "WALCL", "units": "U.S. dollars", "role": "component"},
     "rrp": {"label": "RRP", "units": "U.S. dollars", "role": "component"},
@@ -55,6 +66,16 @@ FED_NET_LIQUIDITY_SERIES: dict[str, dict[str, str]] = {
         "role": "total",
     },
 }
+TREASURY_SECURITIES_NET_ISSUANCE_SERIES: dict[str, dict[str, str]] = {
+    "issued": {"label": "Issued", "units": "U.S. dollars", "role": "component"},
+    "maturing": {"label": "Maturing", "units": "U.S. dollars", "role": "component"},
+    "net_issuance": {
+        "label": "Net Issuance",
+        "units": "U.S. dollars",
+        "role": "primary_metric",
+    },
+}
+
 TGA_EXPLORER_SERIES: dict[str, dict[str, str]] = {
     "transaction_today_amt": {
         "label": "Transaction Today Amount",
@@ -148,6 +169,40 @@ def _tga_explorer_metadata_extra(
     return payload
 
 
+def _treasury_securities_net_issuance_metadata_extra(
+    published_df: pd.DataFrame,
+    metadata: DatasetMetadata,
+) -> dict[str, Any]:
+    source_metadata = metadata.source_metadata or {}
+    payload: dict[str, Any] = {
+        "source_endpoint": source_metadata.get("source_endpoint"),
+        "source_cache_file": _source_cache_file(source_metadata),
+        "source_row_count": source_metadata.get("source_row_count"),
+        "valid_total_accepted_rows": source_metadata.get("valid_total_accepted_rows"),
+        "null_total_accepted_rows": source_metadata.get("null_total_accepted_rows"),
+        "frequencies": source_metadata.get("frequencies", []),
+        "default_frequency": "ME",
+        "security_types": _string_values(published_df, "security_type"),
+        "value_columns": source_metadata.get(
+            "value_columns",
+            ["issued", "maturing", "net_issuance"],
+        ),
+        "primary_metric": "net_issuance",
+        "date_column": "date",
+        "frequency_column": "frequency",
+        "security_type_column": "security_type",
+        "security_type_normalization": source_metadata.get("security_type_normalization", {}),
+        "date_policy": source_metadata.get("date_policy"),
+        "resample_policy": source_metadata.get("resample_policy"),
+        "future_maturity_policy": (
+            "Future maturity dates are intentionally preserved so known scheduled "
+            "maturities remain visible beyond the current date."
+        ),
+        "render_guardrail": {"max_points": TREASURY_SECURITIES_RENDER_GUARDRAIL_POINTS},
+    }
+    return payload
+
+
 PUBLISH_CONFIGS = {
     FED_NET_LIQUIDITY_DATASET_ID: PublishConfig(
         dataset_id=FED_NET_LIQUIDITY_DATASET_ID,
@@ -162,6 +217,14 @@ PUBLISH_CONFIGS = {
         series=TGA_EXPLORER_SERIES,
         date_column="record_date",
         metadata_extra_builder=_tga_explorer_metadata_extra,
+        json_orientation="split",
+    ),
+    TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID: PublishConfig(
+        dataset_id=TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID,
+        artifact_stem=TREASURY_SECURITIES_NET_ISSUANCE_ARTIFACT_STEM,
+        columns=TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS,
+        series=TREASURY_SECURITIES_NET_ISSUANCE_SERIES,
+        metadata_extra_builder=_treasury_securities_net_issuance_metadata_extra,
         json_orientation="split",
     ),
 }

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Treasury Securities Net Issuance | Macro Observatory</title>
+  <link rel="stylesheet" href="../../assets/css/site.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+  <script src="../../assets/js/site.js" defer></script>
+  <script src="../../assets/js/treasury-securities-net-issuance.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand-link" href="../../">Macro Observatory</a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="../../">Pages</a>
+      <a href="../../data/treasury-securities-net-issuance.csv">CSV</a>
+    </nav>
+  </header>
+
+  <main class="site-shell dashboard-shell">
+    <section class="page-heading dashboard-heading">
+      <div>
+        <p class="eyebrow">Treasury Auctions</p>
+        <h1>Treasury Securities Net Issuance</h1>
+        <p class="heading-summary" id="dataset-summary">Loading dataset metadata</p>
+      </div>
+      <div class="metadata-block" aria-label="Dataset build details">
+        <span>Built</span>
+        <strong id="built-at">Loading</strong>
+      </div>
+    </section>
+
+    <div class="alert" id="page-alert" role="alert" hidden></div>
+    <div class="loading-row" id="loading-row">Loading Treasury securities metadata...</div>
+
+    <section class="metric-grid" aria-label="Dataset summary">
+      <article class="metric-tile">
+        <span>Today Marker</span>
+        <strong id="metric-today">-</strong>
+      </article>
+      <article class="metric-tile metric-primary">
+        <span>Dataset Rows</span>
+        <strong id="metric-row-count">-</strong>
+      </article>
+      <article class="metric-tile">
+        <span>Chart Points</span>
+        <strong id="metric-chart-points">-</strong>
+      </article>
+      <article class="metric-tile">
+        <span>Frequency</span>
+        <strong id="metric-frequency">-</strong>
+      </article>
+    </section>
+
+    <section class="explorer-layout" aria-label="Treasury Securities Net Issuance controls and chart">
+      <aside class="control-panel" aria-labelledby="controls-heading">
+        <div class="section-heading-row compact-heading-row">
+          <h2 id="controls-heading">Controls</h2>
+          <span class="range-label" id="control-point-count">-</span>
+        </div>
+
+        <label class="form-field" for="frequency-select">
+          <span>Grouping</span>
+          <select id="frequency-select"></select>
+        </label>
+
+        <fieldset class="checkbox-group">
+          <legend>Security Types</legend>
+          <div id="security-type-list"></div>
+        </fieldset>
+
+        <div class="button-row">
+          <button class="secondary-button" id="reset-button" type="button">Reset</button>
+        </div>
+      </aside>
+
+      <div class="explorer-main">
+        <section class="chart-section explorer-chart-section" aria-labelledby="chart-heading">
+          <div class="section-heading-row">
+            <h2 id="chart-heading">Net Issuance</h2>
+            <div class="chart-heading-actions">
+              <span class="range-label" id="filtered-range-label">-</span>
+              <button class="chart-expand-button" id="treasury-securities-chart-expand" type="button">Expand</button>
+            </div>
+          </div>
+          <div class="guardrail-message" id="guardrail-message" hidden></div>
+          <div class="chart-frame securities-chart-frame" id="treasury-securities-chart-frame">
+            <div id="treasury-securities-chart" class="plotly-chart securities-chart" aria-label="Treasury Securities Net Issuance chart"></div>
+          </div>
+          <div class="diagnostics-bar" id="diagnostics-bar">Rows - | Data - | Parse - | Filter - | Trace - | Render -</div>
+        </section>
+
+        <section class="details-grid explorer-details" aria-label="Dataset details">
+          <article class="detail-panel">
+            <h2>Dataset</h2>
+            <dl class="detail-list">
+              <div>
+                <dt>Units</dt>
+                <dd id="metadata-units">-</dd>
+              </div>
+              <div>
+                <dt>Formula</dt>
+                <dd id="metadata-formula">-</dd>
+              </div>
+              <div>
+                <dt>Policy</dt>
+                <dd id="metadata-policy">-</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article class="detail-panel">
+            <h2>Source Rows</h2>
+            <div class="source-row-list" id="source-row-list"></div>
+          </article>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <noscript>
+    <div class="noscript-message">This page needs JavaScript to load the published data artifact.</div>
+  </noscript>
+</body>
+</html>
