@@ -78,6 +78,7 @@ treasury_dts_deposits_withdrawals_operating_cash                 Treasury Daily 
 treasury_od_auctions_query                                       Treasury Auctions Query
 treasury_tga                                                     Treasury General Account (TGA)
 treasury_dts_deposits_withdrawals_operating_cash_explorer        Treasury DTS Deposits and Withdrawals Explorer Dataset
+treasury_securities_net_issuance                                 Treasury Securities Net Issuance
 fed_net_liquidity                                                Fed Net Liquidity
 ```
 
@@ -282,6 +283,35 @@ If the source cache is missing, run this first:
 
 ```powershell
 uv run macro-observatory update treasury_dts_deposits_withdrawals_operating_cash
+```
+
+## Build Derived Treasury Securities Net Issuance
+
+Build the derived Treasury Securities Net Issuance dataset from the full Treasury auctions query source cache:
+
+```powershell
+uv run macro-observatory build-derived treasury_securities_net_issuance
+```
+
+This command reads:
+
+```text
+data/cache/sources/treasury_od_auctions_query.parquet
+```
+
+and writes:
+
+```text
+data/cache/derived/treasury_securities_net_issuance.parquet
+data/cache/metadata/treasury_securities_net_issuance.json
+```
+
+The derived cache precomputes the legacy pandas resample frequencies `D`, `W`, `ME`, `QE`, and `YE`. Rows are long-form by `frequency`, `date`, and `security_type`, with `issued`, `maturing`, and `net_issuance` in U.S. dollars. Future maturities are intentionally preserved.
+
+If the source cache is missing, run this first:
+
+```powershell
+uv run macro-observatory update treasury_od_auctions_query
 ```
 
 ## Build Derived Fed Net Liquidity
@@ -695,6 +725,7 @@ uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory info treasury_od_auctions_query
 uv run macro-observatory info treasury_tga
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash_explorer
+uv run macro-observatory info treasury_securities_net_issuance
 uv run macro-observatory info fed_net_liquidity
 ```
 
@@ -711,6 +742,7 @@ uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash -
 uv run macro-observatory show treasury_od_auctions_query --rows 10
 uv run macro-observatory show treasury_tga --rows 10
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 10
+uv run macro-observatory show treasury_securities_net_issuance --rows 10
 uv run macro-observatory show fed_net_liquidity --rows 10
 ```
 
@@ -723,6 +755,7 @@ uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash -
 uv run macro-observatory show treasury_od_auctions_query --rows 25
 uv run macro-observatory show treasury_tga --rows 25
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 25
+uv run macro-observatory show treasury_securities_net_issuance --rows 25
 uv run macro-observatory show fed_net_liquidity --rows 25
 ```
 
@@ -739,6 +772,7 @@ uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory export treasury_od_auctions_query --format csv --output exports/treasury_od_auctions_query.csv
 uv run macro-observatory export treasury_tga --format csv --output exports/treasury_tga.csv
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash_explorer --format csv --output exports/treasury_dts_deposits_withdrawals_operating_cash_explorer.csv
+uv run macro-observatory export treasury_securities_net_issuance --format csv --output exports/treasury_securities_net_issuance.csv
 uv run macro-observatory export fed_net_liquidity --format csv --output exports/fed_net_liquidity.csv
 ```
 
@@ -753,6 +787,7 @@ uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory export treasury_od_auctions_query --format parquet --output exports/treasury_od_auctions_query.parquet
 uv run macro-observatory export treasury_tga --format parquet --output exports/treasury_tga.parquet
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash_explorer --format parquet --output exports/treasury_dts_deposits_withdrawals_operating_cash_explorer.parquet
+uv run macro-observatory export treasury_securities_net_issuance --format parquet --output exports/treasury_securities_net_issuance.parquet
 uv run macro-observatory export fed_net_liquidity --format parquet --output exports/fed_net_liquidity.parquet
 ```
 
@@ -779,6 +814,7 @@ df_treasury_deposits_withdrawals = load_dataset("treasury_dts_deposits_withdrawa
 df_treasury_auctions = load_dataset("treasury_od_auctions_query")
 df_tga = load_dataset("treasury_tga")
 df_tga_explorer = load_dataset("treasury_dts_deposits_withdrawals_operating_cash_explorer")
+df_treasury_net_issuance = load_dataset("treasury_securities_net_issuance")
 df_net_liquidity = load_dataset("fed_net_liquidity")
 
 df_walcl.tail()
@@ -789,6 +825,7 @@ df_treasury_deposits_withdrawals.tail()
 df_treasury_auctions.tail()
 df_tga.tail()
 df_tga_explorer.tail()
+df_treasury_net_issuance.tail()
 df_net_liquidity.tail()
 
 df_treasury_ocb["account_type"].drop_duplicates().sort_values()
@@ -808,6 +845,8 @@ df_treasury_auctions[
         "total_accepted",
     ]
 ].tail()
+df_treasury_net_issuance.query('frequency == "ME"').tail()
+df_treasury_net_issuance.groupby("frequency", sort=False).size()
 ```
 
 The normal user-facing API should use dataset IDs rather than requiring users to know cache file paths.
@@ -825,6 +864,7 @@ uv run macro-observatory --data-dir scratch-data update treasury_dts_deposits_wi
 uv run macro-observatory --data-dir scratch-data update treasury_od_auctions_query
 uv run macro-observatory --data-dir scratch-data build-derived treasury_tga
 uv run macro-observatory --data-dir scratch-data build-derived treasury_dts_deposits_withdrawals_operating_cash_explorer
+uv run macro-observatory --data-dir scratch-data build-derived treasury_securities_net_issuance
 uv run macro-observatory --data-dir scratch-data build-derived fed_net_liquidity
 uv run macro-observatory --data-dir scratch-data publish fed_net_liquidity --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data publish treasury_dts_deposits_withdrawals_operating_cash_explorer --site-dir scratch-site
@@ -835,6 +875,7 @@ uv run macro-observatory --data-dir scratch-data info treasury_dts_deposits_with
 uv run macro-observatory --data-dir scratch-data info treasury_od_auctions_query
 uv run macro-observatory --data-dir scratch-data info treasury_tga
 uv run macro-observatory --data-dir scratch-data info treasury_dts_deposits_withdrawals_operating_cash_explorer
+uv run macro-observatory --data-dir scratch-data info treasury_securities_net_issuance
 uv run macro-observatory --data-dir scratch-data info fed_net_liquidity
 uv run macro-observatory --data-dir scratch-data show nyfed_rrp --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_dts_operating_cash_balance --rows 5
@@ -842,5 +883,6 @@ uv run macro-observatory --data-dir scratch-data show treasury_dts_deposits_with
 uv run macro-observatory --data-dir scratch-data show treasury_od_auctions_query --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_tga --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 5
+uv run macro-observatory --data-dir scratch-data show treasury_securities_net_issuance --rows 5
 uv run macro-observatory --data-dir scratch-data show fed_net_liquidity --rows 5
 ```

@@ -1,6 +1,6 @@
 # Treasury Securities Net Issuance Milestone
 
-Status: source dataset checkpoint implemented
+Status: derived dataset checkpoint implemented
 
 This document defines the next Macro Observatory implementation milestone: build a static Treasury Securities Net Issuance page inspired by the legacy Streamlit `Treasury Securities Net Issuance Resample` page.
 
@@ -15,7 +15,7 @@ It should validate:
 - another Treasury Fiscal Data source dataset,
 - full-source endpoint caching for exploratory Pandas use,
 - a compact derived dataset for browser rendering,
-- browser-side grouping by day, week, month end, quarter end, and year end,
+- precomputed pandas grouping by day, week, month end, quarter end, and year end,
 - a third dashboard page on the static site.
 
 The same source dataset should support future Treasury securities pages, including cumulative issuance views and the SPX comparison variant.
@@ -141,26 +141,64 @@ CMB       -> Bill
 Initial output columns:
 
 ```text
+frequency
 date
 security_type
 issued
 maturing
-change
+net_issuance
 ```
 
 Formula:
 
 ```text
-change = issued - maturing
+net_issuance = issued - maturing
 ```
 
-The first chart can render only `change`, but preserving `issued` and `maturing` keeps the derived dataset useful for later pages.
+The derived dataset precomputes all legacy pandas frequencies:
+
+```text
+D, W, ME, QE, YE
+```
+
+`W` uses pandas' default `W-SUN` boundary. `ME` is summed at month end and then labeled with month-start dates to match the legacy Streamlit page. The first chart can render only `net_issuance`, but preserving `issued` and `maturing` keeps the derived dataset useful for later pages.
+
+## Derived Dataset Checkpoint Result
+
+The derived dataset checkpoint is implemented and locally validated.
+
+Local result on June 28, 2026:
+
+```text
+source rows: 11,022
+valid total_accepted rows: 11,018
+null total_accepted rows: 4
+issue_date null rows: 0
+maturity_date null rows: 0
+derived rows: 99,717
+date range: 1979-11-01 to 2056-12-31
+security types: Bill, Bond, Note
+derived parquet: 635.8 KB
+metadata JSON: 2.1 KB
+```
+
+Rows by frequency:
+
+```text
+D     83,826
+W     11,979
+ME     2,757
+QE       921
+YE       234
+```
+
+The derived cache preserves future maturities through 2056 and keeps all five grouped frequencies in one Pandas-friendly long-form Parquet file.
 
 ## Future Maturities
 
 This dataset naturally includes future maturity dates. The legacy cache had maturity dates extending decades beyond the latest issue date.
 
-That behavior should be preserved. The page and metadata should make clear that the chart can include scheduled future maturities from already-known Treasury securities, not only historical observations.
+That behavior is preserved in the derived cache. The page and metadata should make clear that the chart can include scheduled future maturities from already-known Treasury securities, not only historical observations. The page should also include a subtle vertical `Today` marker so the historical/future boundary remains visible while zooming.
 
 ## Browser Artifact And Page
 
@@ -187,18 +225,18 @@ site/assets/js/treasury-securities-net-issuance.js
 Initial controls:
 
 - grouping select: `D`, `W`, `ME`, `QE`, `YE`
-- chart metric fixed to `change` for the first version
+- chart metric fixed to `net_issuance` for the first version
 - shared chart expand/restore behavior
 
 Initial chart:
 
 - Plotly bar chart,
 - x-axis: grouped date,
-- y-axis: net issuance change,
+- y-axis: net issuance,
 - series: `Bill`, `Note`, `Bond`,
 - default grouping: `ME`.
 
-The browser artifact should publish daily values. The page can group to week, month end, quarter end, or year end without another network request.
+The browser artifact should publish the precomputed frequency rows from the derived cache. The page can switch among day, week, month end, quarter end, or year end without reimplementing pandas resampling in JavaScript.
 
 ## Metadata
 
@@ -215,7 +253,8 @@ Useful metadata fields:
 - units,
 - future maturity note,
 - supported grouping frequencies,
-- default grouping.
+- default grouping,
+- pandas resample policy.
 
 ## GitHub Actions Cache Sequencing
 
@@ -265,9 +304,9 @@ This checkpoint stopped after inspecting schema, row count, date ranges, file si
 
 ### 2. Derived Dataset Checkpoint
 
-Complete when Macro Observatory can build `treasury_securities_net_issuance`, normalize security types, compute issued, maturing, and change by date and security type, preserve future maturity dates, and cache derived Parquet plus metadata.
+Completed. Macro Observatory can build `treasury_securities_net_issuance`, normalize security types, compute issued, maturing, and net issuance by date and security type, preserve future maturity dates, precompute `D`, `W`, `ME`, `QE`, and `YE` with pandas, and cache derived Parquet plus metadata.
 
-Stop after this checkpoint to compare results with the legacy Streamlit page.
+This checkpoint stopped after validating row counts, frequency ranges, null handling, future maturity preservation, and file size.
 
 ### 3. Browser Artifact Checkpoint
 
@@ -292,8 +331,7 @@ Complete when aggregate `build-site` includes the new source, derived dataset, p
 
 ## Open Questions
 
-- Should the first static page include only `change`, or expose `issued` and `maturing` as optional chart metrics?
+- Should the first static page include only `net_issuance`, or expose `issued` and `maturing` as optional chart metrics?
 - Should the chart mode later support line and cumulative views from the adjacent legacy page?
-- Should dates after today be visually distinguished because they represent scheduled future maturities?
-- Should browser grouping match pandas `resample` exactly, or is a documented JavaScript equivalent acceptable if edge cases differ?
+- What is the best visual style for the `Today` marker on the future static page?
 - What is the best scheduled refresh time for the auctions endpoint after current Treasury publishing behavior is checked?

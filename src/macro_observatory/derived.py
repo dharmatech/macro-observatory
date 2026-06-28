@@ -11,7 +11,10 @@ import pandas as pd
 from macro_observatory.cache import load_cache, load_metadata, replace_dataset
 from macro_observatory.models import DatasetSpec, UpdateResult
 from macro_observatory.registry import DEFAULT_DATA_DIR, get_dataset_spec
-from macro_observatory.sources.treasury import TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT
+from macro_observatory.sources.treasury import (
+    TREASURY_AUCTIONS_QUERY_ENDPOINT,
+    TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT,
+)
 from macro_observatory.validation import require_columns
 
 FRED_WALCL_DATASET_ID = "fred_walcl"
@@ -19,10 +22,12 @@ FRED_RESPPLLOPNWW_DATASET_ID = "fred_resppllopnww"
 NYFED_RRP_DATASET_ID = "nyfed_rrp"
 TREASURY_OCB_DATASET_ID = "treasury_dts_operating_cash_balance"
 TREASURY_DTS_DEPOSITS_WITHDRAWALS_DATASET_ID = "treasury_dts_deposits_withdrawals_operating_cash"
+TREASURY_AUCTIONS_QUERY_DATASET_ID = "treasury_od_auctions_query"
 TREASURY_TGA_DATASET_ID = "treasury_tga"
 TREASURY_DTS_DEPOSITS_WITHDRAWALS_EXPLORER_DATASET_ID = (
     "treasury_dts_deposits_withdrawals_operating_cash_explorer"
 )
+TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID = "treasury_securities_net_issuance"
 FED_NET_LIQUIDITY_DATASET_ID = "fed_net_liquidity"
 MILLIONS_TO_DOLLARS = 1_000_000.0
 
@@ -52,6 +57,23 @@ TGA_EXPLORER_BASE_EXCLUDED_CATEGORIES = (
     "Transfers to Federal Reserve Account (Table V)",
     "ShTransfersCtohFederalmReserve Account (Table V)",
 )
+TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS = (
+    "frequency",
+    "date",
+    "security_type",
+    "issued",
+    "maturing",
+    "net_issuance",
+)
+TREASURY_SECURITIES_NET_ISSUANCE_VALUE_COLUMNS = ("issued", "maturing", "net_issuance")
+TREASURY_SECURITIES_NET_ISSUANCE_FREQUENCIES = ("D", "W", "ME", "QE", "YE")
+TREASURY_SECURITY_TYPE_REPLACEMENTS = {
+    "TIPS Note": "Note",
+    "FRN Note": "Note",
+    "TIPS Bond": "Bond",
+    "CMB": "Bill",
+    "null": "Unknown",
+}
 FED_NET_LIQUIDITY_COLUMNS = (
     "date",
     "walcl",
@@ -74,6 +96,7 @@ FED_NET_LIQUIDITY_INPUTS = (
 DERIVED_DATASET_IDS = (
     TREASURY_TGA_DATASET_ID,
     TREASURY_DTS_DEPOSITS_WITHDRAWALS_EXPLORER_DATASET_ID,
+    TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID,
     FED_NET_LIQUIDITY_DATASET_ID,
 )
 
@@ -187,6 +210,130 @@ def derive_tga_explorer(source_df: pd.DataFrame) -> pd.DataFrame:
     return result.loc[:, list(TGA_EXPLORER_COLUMNS)].copy()
 
 
+def _treasury_securities_source_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    required_columns = ("issue_date", "maturity_date", "security_type", "total_accepted")
+    require_columns(source_df, required_columns)
+
+    result = source_df.loc[:, list(required_columns)].copy()
+    result["issue_date"] = pd.to_datetime(result["issue_date"], errors="coerce").dt.normalize()
+    result["maturity_date"] = pd.to_datetime(
+        result["maturity_date"], errors="coerce"
+    ).dt.normalize()
+    result["total_accepted"] = pd.to_numeric(result["total_accepted"], errors="coerce")
+    security_type = result["security_type"].astype("string")
+    security_type = security_type.replace(TREASURY_SECURITY_TYPE_REPLACEMENTS)
+    result["security_type"] = security_type.fillna("Unknown").astype(str)
+    return result
+
+
+def _treasury_securities_amounts(
+    source_df: pd.DataFrame,
+    *,
+    date_column: str,
+    output_column: str,
+) -> pd.DataFrame:
+    selected = source_df.dropna(subset=[date_column, "total_accepted"])
+    if selected.empty:
+        return pd.DataFrame(columns=["date", "security_type", output_column])
+
+    result = selected.groupby([date_column, "security_type"], as_index=False).agg(
+        total_accepted=("total_accepted", "sum")
+    )
+    result = result.rename(columns={date_column: "date", "total_accepted": output_column})
+    return result.loc[:, ["date", "security_type", output_column]].copy()
+
+
+def _daily_treasury_securities_net_issuance(source_df: pd.DataFrame) -> pd.DataFrame:
+    prepared = _treasury_securities_source_frame(source_df)
+    valid_amounts = prepared.dropna(subset=["total_accepted"])
+    if valid_amounts.empty:
+        raise DerivedDatasetError("Treasury auctions source has no numeric total_accepted rows.")
+
+    issued = _treasury_securities_amounts(
+        prepared,
+        date_column="issue_date",
+        output_column="issued",
+    )
+    maturing = _treasury_securities_amounts(
+        prepared,
+        date_column="maturity_date",
+        output_column="maturing",
+    )
+    result = issued.merge(maturing, on=["date", "security_type"], how="outer")
+    result[["issued", "maturing"]] = result[["issued", "maturing"]].fillna(0.0)
+    result = result.groupby(["date", "security_type"], as_index=False)[["issued", "maturing"]].sum()
+    result["net_issuance"] = result["issued"] - result["maturing"]
+    return result.sort_values(["date", "security_type"]).reset_index(drop=True)
+
+
+def _resample_treasury_securities_metric(
+    daily_df: pd.DataFrame,
+    *,
+    frequency: str,
+    value_column: str,
+) -> pd.DataFrame:
+    pivot = (
+        daily_df.pivot(index="date", columns="security_type", values=value_column)
+        .fillna(0.0)
+        .sort_index()
+    )
+    resampled = pivot.resample(frequency).sum()
+    if frequency == "ME":
+        month_start = resampled.reset_index()
+        month_start["date"] = month_start["date"].dt.to_period("M").dt.to_timestamp()
+        resampled = month_start.set_index("date")
+
+    return resampled.reset_index().melt(
+        id_vars="date",
+        var_name="security_type",
+        value_name=value_column,
+    )
+
+
+def _resample_treasury_securities_net_issuance(
+    daily_df: pd.DataFrame,
+    frequency: str,
+) -> pd.DataFrame:
+    frames = [
+        _resample_treasury_securities_metric(
+            daily_df,
+            frequency=frequency,
+            value_column=value_column,
+        )
+        for value_column in TREASURY_SECURITIES_NET_ISSUANCE_VALUE_COLUMNS
+    ]
+    result = frames[0]
+    for frame in frames[1:]:
+        result = result.merge(frame, on=["date", "security_type"], how="inner")
+    result["frequency"] = frequency
+    return result.loc[:, list(TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS)].copy()
+
+
+def derive_treasury_securities_net_issuance(source_df: pd.DataFrame) -> pd.DataFrame:
+    """Build Treasury securities net issuance across legacy pandas frequencies."""
+    daily = _daily_treasury_securities_net_issuance(source_df)
+    if daily.empty:
+        raise DerivedDatasetError("Treasury auctions source produced no issuance rows.")
+
+    result = pd.concat(
+        [
+            _resample_treasury_securities_net_issuance(daily, frequency)
+            for frequency in TREASURY_SECURITIES_NET_ISSUANCE_FREQUENCIES
+        ],
+        ignore_index=True,
+    )
+    result["date"] = pd.to_datetime(result["date"], errors="raise").dt.normalize()
+    frequency_order = {
+        frequency: index
+        for index, frequency in enumerate(TREASURY_SECURITIES_NET_ISSUANCE_FREQUENCIES)
+    }
+    result["_frequency_order"] = result["frequency"].map(frequency_order)
+    result = result.sort_values(["_frequency_order", "date", "security_type"]).reset_index(
+        drop=True
+    )
+    return result.loc[:, list(TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS)].copy()
+
+
 def _component_frame(
     df: pd.DataFrame,
     *,
@@ -276,13 +423,13 @@ def build_treasury_tga(*, data_dir: Path = DEFAULT_DATA_DIR) -> UpdateResult:
     return replace_dataset(target_spec, derived_df, source_metadata=metadata)
 
 
-def _source_endpoint(source_spec: DatasetSpec) -> str:
+def _source_endpoint(source_spec: DatasetSpec, *, fallback: str) -> str:
     metadata = load_metadata(source_spec)
     if metadata is not None and metadata.source_metadata is not None:
         endpoint = metadata.source_metadata.get("endpoint_url")
         if isinstance(endpoint, str):
             return endpoint
-    return TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT
+    return fallback
 
 
 def build_tga_explorer(*, data_dir: Path = DEFAULT_DATA_DIR) -> UpdateResult:
@@ -299,7 +446,10 @@ def build_tga_explorer(*, data_dir: Path = DEFAULT_DATA_DIR) -> UpdateResult:
     derived_df = derive_tga_explorer(source_df)
     metadata: dict[str, Any] = {
         "derived_from": [TREASURY_DTS_DEPOSITS_WITHDRAWALS_DATASET_ID],
-        "source_endpoint": _source_endpoint(source_spec),
+        "source_endpoint": _source_endpoint(
+            source_spec,
+            fallback=TREASURY_DEPOSITS_WITHDRAWALS_OPERATING_CASH_ENDPOINT,
+        ),
         "source_cache": str(source_spec.cache_path),
         "source_row_count": len(source_df),
         "source_rows": {TREASURY_DTS_DEPOSITS_WITHDRAWALS_DATASET_ID: len(source_df)},
@@ -309,6 +459,49 @@ def build_tga_explorer(*, data_dir: Path = DEFAULT_DATA_DIR) -> UpdateResult:
         "sign_policy": (
             "Amounts are cached in Treasury's published sign. The browser renders "
             "Withdrawals as negative values before charting."
+        ),
+    }
+    return replace_dataset(target_spec, derived_df, source_metadata=metadata)
+
+
+def build_treasury_securities_net_issuance(*, data_dir: Path = DEFAULT_DATA_DIR) -> UpdateResult:
+    """Build and cache the derived Treasury securities net issuance dataset."""
+    source_spec = get_dataset_spec(TREASURY_AUCTIONS_QUERY_DATASET_ID, data_dir)
+    target_spec = get_dataset_spec(TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID, data_dir)
+
+    _require_cache(source_spec, target_dataset_id=TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID)
+
+    source_df = load_cache(source_spec)
+    prepared = _treasury_securities_source_frame(source_df)
+    derived_df = derive_treasury_securities_net_issuance(source_df)
+    valid_amounts = prepared.dropna(subset=["total_accepted"])
+    metadata: dict[str, Any] = {
+        "derived_from": [TREASURY_AUCTIONS_QUERY_DATASET_ID],
+        "source_endpoint": _source_endpoint(
+            source_spec,
+            fallback=TREASURY_AUCTIONS_QUERY_ENDPOINT,
+        ),
+        "source_cache": str(source_spec.cache_path),
+        "source_row_count": len(source_df),
+        "source_rows": {TREASURY_AUCTIONS_QUERY_DATASET_ID: len(source_df)},
+        "valid_total_accepted_rows": len(valid_amounts),
+        "null_total_accepted_rows": int(prepared["total_accepted"].isna().sum()),
+        "issue_date_null_rows": int(valid_amounts["issue_date"].isna().sum()),
+        "maturity_date_null_rows": int(valid_amounts["maturity_date"].isna().sum()),
+        "output_columns": list(TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS),
+        "value_columns": list(TREASURY_SECURITIES_NET_ISSUANCE_VALUE_COLUMNS),
+        "frequencies": list(TREASURY_SECURITIES_NET_ISSUANCE_FREQUENCIES),
+        "security_types": sorted(str(value) for value in valid_amounts["security_type"].unique()),
+        "security_type_normalization": dict(TREASURY_SECURITY_TYPE_REPLACEMENTS),
+        "date_policy": (
+            "Issued amounts are grouped by issue_date. Maturing amounts are grouped by "
+            "maturity_date. Future maturities are intentionally preserved."
+        ),
+        "formula": "net_issuance = issued - maturing",
+        "resample_policy": (
+            "The daily security-type pivot is resampled with pandas sum() for D, W, ME, "
+            "QE, and YE. W uses pandas' default W-SUN boundary. ME labels are converted "
+            "to month starts to match the legacy Streamlit page."
         ),
     }
     return replace_dataset(target_spec, derived_df, source_metadata=metadata)
@@ -359,6 +552,8 @@ def build_derived_dataset(dataset_id: str, *, data_dir: Path = DEFAULT_DATA_DIR)
         return build_treasury_tga(data_dir=data_dir)
     if dataset_id == TREASURY_DTS_DEPOSITS_WITHDRAWALS_EXPLORER_DATASET_ID:
         return build_tga_explorer(data_dir=data_dir)
+    if dataset_id == TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID:
+        return build_treasury_securities_net_issuance(data_dir=data_dir)
     if dataset_id == FED_NET_LIQUIDITY_DATASET_ID:
         return build_fed_net_liquidity(data_dir=data_dir)
     known = ", ".join(DERIVED_DATASET_IDS)

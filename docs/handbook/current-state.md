@@ -50,6 +50,7 @@ Current implementation priorities:
 - Static site shell and Fed Net Liquidity Plotly page under `site/`.
 - Treasury Fiscal Data Deposits and Withdrawals source dataset: `treasury_dts_deposits_withdrawals_operating_cash`.
 - Treasury Fiscal Data Auctions Query source dataset: `treasury_od_auctions_query`.
+- Derived Treasury Securities Net Issuance dataset: `treasury_securities_net_issuance`.
 - Derived TGA Explorer dataset: `treasury_dts_deposits_withdrawals_operating_cash_explorer`.
 - TGA Explorer published browser artifacts under `site/data/`.
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
@@ -72,7 +73,7 @@ Current package files:
 - `src/macro_observatory/sources/fred.py`: FRED source adapter.
 - `src/macro_observatory/sources/nyfed.py`: New York Fed reverse repo source adapter.
 - `src/macro_observatory/sources/treasury.py`: Treasury Fiscal Data source adapters.
-- `src/macro_observatory/derived.py`: derived builders for `treasury_tga`, `fed_net_liquidity`, and TGA Explorer.
+- `src/macro_observatory/derived.py`: derived builders for `treasury_tga`, `fed_net_liquidity`, TGA Explorer, and Treasury Securities Net Issuance.
 - `src/macro_observatory/publish.py`: static artifact publisher for browser-facing data files.
 - `src/macro_observatory/diagnostics.py`: cross-platform storage report for known cache, metadata, and site data files.
 - `src/macro_observatory/registry.py`: dataset registry for source and derived datasets.
@@ -157,6 +158,7 @@ Build derived datasets:
 uv run macro-observatory build-derived treasury_tga
 uv run macro-observatory build-derived fed_net_liquidity
 uv run macro-observatory build-derived treasury_dts_deposits_withdrawals_operating_cash_explorer
+uv run macro-observatory build-derived treasury_securities_net_issuance
 ```
 
 Publish browser-facing artifacts:
@@ -173,8 +175,10 @@ uv run macro-observatory storage-report
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory info treasury_od_auctions_query
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash_explorer
+uv run macro-observatory info treasury_securities_net_issuance
 uv run macro-observatory show treasury_od_auctions_query --rows 10
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 10
+uv run macro-observatory show treasury_securities_net_issuance --rows 10
 ```
 
 Build all current static-site artifacts:
@@ -319,7 +323,63 @@ rows fetched: 21
 rows after: 11,022
 ```
 
-This source dataset is intentionally not wired into aggregate `build-site`, GitHub Pages deployment, or scheduled refresh yet. The next implementation step should derive a compact Treasury Securities Net Issuance dataset from this source.
+This source dataset is intentionally not wired into aggregate `build-site`, GitHub Pages deployment, or scheduled refresh yet.
+
+### Treasury Securities Net Issuance Derived Dataset
+
+Derived from:
+
+```text
+treasury_od_auctions_query
+```
+
+Current dataset ID:
+
+```text
+treasury_securities_net_issuance
+```
+
+Current cache paths:
+
+```text
+data/cache/derived/treasury_securities_net_issuance.parquet
+data/cache/metadata/treasury_securities_net_issuance.json
+```
+
+Current derived columns:
+
+```text
+frequency, date, security_type, issued, maturing, net_issuance
+```
+
+The derived cache matches the legacy Streamlit page's pandas semantics by normalizing security types, grouping issued amounts by `issue_date`, grouping maturing amounts by `maturity_date`, and precomputing `D`, `W`, `ME`, `QE`, and `YE` resampled rows. `W` uses pandas' default `W-SUN` boundary. `ME` values are summed at month end and then labeled with month-start dates to match the legacy page. Future maturities are intentionally preserved.
+
+Latest local metadata at this checkpoint:
+
+```text
+source rows: 11,022
+valid total_accepted rows: 11,018
+null total_accepted rows: 4
+issue_date null rows: 0
+maturity_date null rows: 0
+derived rows: 99,717
+date range: 1979-11-01 to 2056-12-31
+security types: Bill, Bond, Note
+derived parquet: 635.8 KB
+metadata JSON: 2.1 KB
+```
+
+Rows by frequency:
+
+```text
+D     83,826
+W     11,979
+ME     2,757
+QE       921
+YE       234
+```
+
+This derived dataset is intentionally not wired into aggregate `build-site`, GitHub Pages deployment, browser artifacts, or scheduled refresh yet. The next implementation step should publish a compact browser artifact and then build the static page.
 
 ### TGA Explorer Derived Dataset
 
@@ -400,14 +460,14 @@ The legacy default `transaction_fytd_amt` minimum of `100000` currently filters 
 
 ## Current Storage Snapshot
 
-A live `uv run macro-observatory storage-report` after the Treasury Auctions Query source checkpoint showed:
+A live `uv run macro-observatory storage-report` after the Treasury Securities Net Issuance derived checkpoint showed:
 
 ```text
 source cache         6,140.5 KB
-derived cache        3,886.8 KB
-metadata                32.0 KB
+derived cache        4,522.6 KB
+metadata                34.1 KB
 site data           63,674.4 KB
-overall             73,733.7 KB
+overall             74,371.6 KB
 ```
 
 Notable generated artifact sizes:
@@ -416,6 +476,7 @@ Notable generated artifact sizes:
 data/cache/sources/treasury_dts_deposits_withdrawals_operating_cash.parquet           3,831.5 KB
 data/cache/sources/treasury_od_auctions_query.parquet                                1,958.3 KB
 data/cache/derived/treasury_dts_deposits_withdrawals_operating_cash_explorer.parquet  3,502.6 KB
+data/cache/derived/treasury_securities_net_issuance.parquet                            635.8 KB
 site/data/tga-explorer.json                                                          32,359.0 KB
 site/data/tga-explorer.csv                                                           29,275.6 KB
 site/data/tga-explorer-metadata.json                                                      2.6 KB
@@ -433,7 +494,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoints are watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`, then building the derived `treasury_securities_net_issuance` dataset from `treasury_od_auctions_query` for the Treasury Securities Net Issuance milestone.
+The next likely checkpoints are watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`, then publishing browser artifacts and building the static page for Treasury Securities Net Issuance.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -459,4 +520,4 @@ Scheduled refresh workflow implementation is now present. Manual `rrp_daily` dis
 - `10000` rows is the initial render guardrail for TGA Explorer. It should be tuned after browser testing.
 - Future large-data research could evaluate Arrow, browser-readable Parquet, DuckDB-Wasm, compressed JSON, chunked artifacts, pre-aggregation, WebGL, or canvas renderers. See `docs/design/91-browser-data-formats.md`.
 - Scheduled refresh workflow timing should be validated with live runs on the next market day. The workflow uses UTC cron entries with Pacific/Eastern comments; daylight-saving behavior should be reviewed after observing several weeks of runs.
-- Treasury Auctions Query currently has 4 null `total_accepted` rows and future issue/maturity dates in the source endpoint; the derived Treasury Securities Net Issuance builder should make those policies explicit.
+- Treasury Securities Net Issuance should show a visible `Today` marker in the future page checkpoint so future scheduled maturities are easy to distinguish from historical issuance and maturities.

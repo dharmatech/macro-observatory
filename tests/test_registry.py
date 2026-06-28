@@ -21,6 +21,7 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
         "treasury_dts_deposits_withdrawals_operating_cash_explorer",
         "treasury_dts_operating_cash_balance",
         "treasury_od_auctions_query",
+        "treasury_securities_net_issuance",
         "treasury_tga",
     ]
 
@@ -146,6 +147,22 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
     assert tga_explorer.source_units == "millions of U.S. dollars"
     assert tga_explorer.display_units == "millions of U.S. dollars"
 
+    treasury_securities = registry["treasury_securities_net_issuance"]
+    assert treasury_securities.title == "Treasury Securities Net Issuance"
+    assert treasury_securities.source_name == "Macro Observatory Derived"
+    assert treasury_securities.kind == "derived"
+    assert treasury_securities.adapter is None
+    assert treasury_securities.date_column == "date"
+    assert treasury_securities.primary_key == ("frequency", "date", "security_type")
+    assert treasury_securities.cache_path == (
+        tmp_path / "cache" / "derived" / "treasury_securities_net_issuance.parquet"
+    )
+    assert treasury_securities.metadata_path == (
+        tmp_path / "cache" / "metadata" / "treasury_securities_net_issuance.json"
+    )
+    assert treasury_securities.source_units == "U.S. dollars"
+    assert treasury_securities.display_units == "U.S. dollars"
+
     net_liquidity = registry["fed_net_liquidity"]
     assert net_liquidity.title == "Fed Net Liquidity"
     assert net_liquidity.source_name == "Macro Observatory Derived"
@@ -175,6 +192,7 @@ def test_get_dataset_spec_error_lists_known_ids(tmp_path: Path) -> None:
     assert "treasury_dts_deposits_withdrawals_operating_cash_explorer" in message
     assert "treasury_dts_operating_cash_balance" in message
     assert "treasury_od_auctions_query" in message
+    assert "treasury_securities_net_issuance" in message
     assert "treasury_tga" in message
 
 

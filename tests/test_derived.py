@@ -12,9 +12,11 @@ from macro_observatory.derived import (
     build_derived_dataset,
     derive_fed_net_liquidity,
     derive_tga_explorer,
+    derive_treasury_securities_net_issuance,
     derive_treasury_tga,
 )
 from macro_observatory.registry import get_dataset_spec
+from macro_observatory.sources.treasury import TREASURY_AUCTIONS_QUERY_COLUMNS
 
 
 def operating_cash_balance_row(
@@ -76,6 +78,94 @@ def tga_rows(rows: list[tuple[str, float]]) -> pd.DataFrame:
             "source_balance_field": "open_today_bal",
         }
     )
+
+
+def auctions_query_row(
+    record_date: str,
+    cusip: str,
+    *,
+    security_type: str,
+    issue_date: str,
+    maturity_date: str,
+    total_accepted: str,
+    auction_date: str = "2024-01-01",
+) -> dict[str, str]:
+    row = {column: "null" for column in TREASURY_AUCTIONS_QUERY_COLUMNS}
+    row.update(
+        {
+            "record_date": record_date,
+            "cusip": cusip,
+            "security_type": security_type,
+            "auction_date": auction_date,
+            "issue_date": issue_date,
+            "maturity_date": maturity_date,
+            "total_accepted": total_accepted,
+        }
+    )
+    return row
+
+
+def treasury_auctions_rows() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            auctions_query_row(
+                "2024-01-01",
+                "A",
+                security_type="Note",
+                issue_date="2024-01-02",
+                maturity_date="2024-01-07",
+                total_accepted="100",
+            ),
+            auctions_query_row(
+                "2024-01-01",
+                "B",
+                security_type="TIPS Note",
+                issue_date="2024-01-02",
+                maturity_date="2024-02-29",
+                total_accepted="50",
+            ),
+            auctions_query_row(
+                "2024-01-01",
+                "C",
+                security_type="CMB",
+                issue_date="2024-01-31",
+                maturity_date="2024-02-01",
+                total_accepted="30",
+            ),
+            auctions_query_row(
+                "2024-02-01",
+                "D",
+                security_type="Bond",
+                issue_date="2024-02-15",
+                maturity_date="2025-02-15",
+                total_accepted="200",
+            ),
+            auctions_query_row(
+                "2024-02-01",
+                "E",
+                security_type="FRN Note",
+                issue_date="2024-02-15",
+                maturity_date="2026-02-15",
+                total_accepted="null",
+            ),
+        ]
+    )
+
+
+def treasury_securities_row(
+    df: pd.DataFrame,
+    *,
+    frequency: str,
+    date: str,
+    security_type: str,
+) -> pd.Series:
+    selected = df.loc[
+        (df["frequency"] == frequency)
+        & (df["date"] == pd.Timestamp(date))
+        & (df["security_type"] == security_type)
+    ]
+    assert len(selected) == 1
+    return selected.iloc[0]
 
 
 def deposits_withdrawals_rows() -> pd.DataFrame:
@@ -259,6 +349,136 @@ def test_build_derived_treasury_tga_writes_cache_and_metadata(tmp_path: Path) ->
     assert metadata.source_metadata["derived_from"] == ["treasury_dts_operating_cash_balance"]
     assert metadata.source_metadata["source_row_count"] == 2
     assert len(metadata.source_metadata["selection_rules"]) == 3
+
+
+def test_derive_treasury_securities_net_issuance_matches_legacy_resample_semantics() -> None:
+    derived = derive_treasury_securities_net_issuance(treasury_auctions_rows())
+
+    assert derived.columns.tolist() == [
+        "frequency",
+        "date",
+        "security_type",
+        "issued",
+        "maturing",
+        "net_issuance",
+    ]
+    assert set(derived["frequency"]) == {"D", "W", "ME", "QE", "YE"}
+    assert set(derived["security_type"]) == {"Bill", "Bond", "Note"}
+
+    daily_note_issue = treasury_securities_row(
+        derived,
+        frequency="D",
+        date="2024-01-02",
+        security_type="Note",
+    )
+    assert daily_note_issue["issued"] == 150
+    assert daily_note_issue["maturing"] == 0
+    assert daily_note_issue["net_issuance"] == 150
+
+    daily_note_maturity = treasury_securities_row(
+        derived,
+        frequency="D",
+        date="2024-01-07",
+        security_type="Note",
+    )
+    assert daily_note_maturity["issued"] == 0
+    assert daily_note_maturity["maturing"] == 100
+    assert daily_note_maturity["net_issuance"] == -100
+
+    weekly_note = treasury_securities_row(
+        derived,
+        frequency="W",
+        date="2024-01-07",
+        security_type="Note",
+    )
+    assert weekly_note["issued"] == 150
+    assert weekly_note["maturing"] == 100
+    assert weekly_note["net_issuance"] == 50
+
+    monthly_note = treasury_securities_row(
+        derived,
+        frequency="ME",
+        date="2024-01-01",
+        security_type="Note",
+    )
+    assert monthly_note["issued"] == 150
+    assert monthly_note["maturing"] == 100
+    assert monthly_note["net_issuance"] == 50
+
+    yearly_bond_future_maturity = treasury_securities_row(
+        derived,
+        frequency="YE",
+        date="2025-12-31",
+        security_type="Bond",
+    )
+    assert yearly_bond_future_maturity["issued"] == 0
+    assert yearly_bond_future_maturity["maturing"] == 200
+    assert yearly_bond_future_maturity["net_issuance"] == -200
+
+    ignored_null_amount = derived.loc[
+        (derived["frequency"] == "YE")
+        & (derived["date"] == pd.Timestamp("2026-12-31"))
+        & (derived["security_type"] == "Note")
+    ]
+    assert ignored_null_amount.empty
+
+
+def test_build_derived_treasury_securities_net_issuance_requires_source_cache(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(MissingSourceCacheError) as exc_info:
+        build_derived_dataset("treasury_securities_net_issuance", data_dir=tmp_path)
+
+    assert "update treasury_od_auctions_query" in str(exc_info.value)
+
+
+def test_build_derived_treasury_securities_net_issuance_writes_cache_and_metadata(
+    tmp_path: Path,
+) -> None:
+    source_spec = get_dataset_spec("treasury_od_auctions_query", tmp_path)
+    target_spec = get_dataset_spec("treasury_securities_net_issuance", tmp_path)
+    replace_dataset(
+        source_spec,
+        treasury_auctions_rows(),
+        source_metadata={"endpoint_url": "https://example.test/auctions"},
+    )
+
+    result = build_derived_dataset("treasury_securities_net_issuance", data_dir=tmp_path)
+
+    assert result.dataset_id == "treasury_securities_net_issuance"
+    assert result.rows_before == 0
+    assert result.rows_fetched > 0
+    assert result.rows_after == result.rows_fetched
+    assert target_spec.cache_path.exists()
+    assert target_spec.metadata_path.exists()
+
+    cached = load_cache(target_spec)
+    monthly_bill = treasury_securities_row(
+        cached,
+        frequency="ME",
+        date="2024-01-01",
+        security_type="Bill",
+    )
+    assert monthly_bill["net_issuance"] == 30
+
+    loaded = load_dataset("treasury_securities_net_issuance", data_dir=tmp_path)
+    assert loaded.equals(cached)
+
+    metadata = load_metadata(target_spec)
+    assert metadata is not None
+    assert metadata.dataset_id == "treasury_securities_net_issuance"
+    assert metadata.row_count == result.rows_after
+    assert metadata.source_units == "U.S. dollars"
+    assert metadata.source_metadata is not None
+    assert metadata.source_metadata["derived_from"] == ["treasury_od_auctions_query"]
+    assert metadata.source_metadata["source_endpoint"] == "https://example.test/auctions"
+    assert metadata.source_metadata["source_row_count"] == 5
+    assert metadata.source_metadata["valid_total_accepted_rows"] == 4
+    assert metadata.source_metadata["null_total_accepted_rows"] == 1
+    assert metadata.source_metadata["frequencies"] == ["D", "W", "ME", "QE", "YE"]
+    assert metadata.source_metadata["security_type_normalization"]["CMB"] == "Bill"
+    assert "Future maturities" in metadata.source_metadata["date_policy"]
+    assert "W-SUN" in metadata.source_metadata["resample_policy"]
 
 
 def test_derive_fed_net_liquidity_forward_fills_and_converts_units() -> None:

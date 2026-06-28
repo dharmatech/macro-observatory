@@ -226,6 +226,26 @@ def _treasury_deposits_withdrawals_explorer_spec(
     )
 
 
+def _treasury_securities_net_issuance_spec(derived_dir: Path, metadata_dir: Path) -> DatasetSpec:
+    value_columns = ("issued", "maturing", "net_issuance")
+    return DatasetSpec(
+        id="treasury_securities_net_issuance",
+        title="Treasury Securities Net Issuance",
+        source_name="Macro Observatory Derived",
+        adapter=None,
+        date_column="date",
+        primary_key=("frequency", "date", "security_type"),
+        overlap_days=0,
+        cache_path=derived_dir / "treasury_securities_net_issuance.parquet",
+        metadata_path=metadata_dir / "treasury_securities_net_issuance.json",
+        required_columns=("frequency", "date", "security_type", *value_columns),
+        numeric_columns=value_columns,
+        source_units=US_DOLLARS,
+        display_units=US_DOLLARS,
+        kind="derived",
+    )
+
+
 def _fed_net_liquidity_spec(derived_dir: Path, metadata_dir: Path) -> DatasetSpec:
     value_columns = (
         "walcl",
@@ -284,6 +304,7 @@ def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
         _treasury_auctions_query_spec(source_dir, metadata_dir),
         _treasury_tga_spec(derived_dir, metadata_dir),
         _treasury_deposits_withdrawals_explorer_spec(derived_dir, metadata_dir),
+        _treasury_securities_net_issuance_spec(derived_dir, metadata_dir),
         _fed_net_liquidity_spec(derived_dir, metadata_dir),
     )
     return {spec.id: spec for spec in specs}
