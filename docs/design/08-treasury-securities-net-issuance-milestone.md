@@ -362,7 +362,7 @@ Completed. The static site can show the Treasury Securities Net Issuance page, r
 
 ### 5. Aggregate Build And Actions Cache Checkpoint
 
-Partially completed locally. Aggregate `build-site` includes the new source, derived dataset, publish artifact, and page, and local `build-site --from-cache` works with the local cache. The remaining remote step is to intentionally refresh the GitHub Actions data cache with the new auctions source before relying on push-triggered Pages deployments for this page.
+Remote cache refresh completed. Aggregate `build-site` includes the new source, derived dataset, publish artifact, and page; local `build-site --from-cache` works with the local cache; manual Pages run `28328939575` intentionally refreshed the GitHub Actions data cache with `treasury_od_auctions_query`, rebuilt `4` derived datasets, published `3` browser artifacts, saved cache key `macro-observatory-data-cache-v1-Linux-28328939575`, and deployed the new page. The next push-triggered deployment should now restore the refreshed cache without source API calls.
 
 ## Non-Goals
 

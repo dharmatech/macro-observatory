@@ -530,7 +530,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoints are intentionally refreshing the GitHub Actions data cache after the Treasury Securities page lands, watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`, and then adding a scheduled auctions refresh group after the preferred Treasury auctions update time is confirmed.
+The next likely checkpoints are verifying that the next push-triggered Pages deployment restores the refreshed cache without source API calls, watching the first live Monday RRP and Treasury scheduled runs from `.github/workflows/scheduled-refresh.yml`, and then adding a scheduled auctions refresh group after the preferred Treasury auctions update time is confirmed.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
