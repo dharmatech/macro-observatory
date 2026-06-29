@@ -543,6 +543,15 @@ dd {
   margin-bottom: 12px;
 }
 
+.category-search-field {
+  margin: 10px 0 0;
+}
+
+.category-search-field input {
+  font-family: inherit;
+  font-variant-numeric: normal;
+}
+
 .category-select {
   min-height: 260px;
   margin-top: 8px;

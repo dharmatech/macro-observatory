@@ -23,11 +23,13 @@
   };
   const LEGEND_CATEGORY_LIMIT = 80;
   const FILTER_DEBOUNCE_MS = 120;
+  const CATEGORY_HELP_SUFFIX = "Ctrl-click toggles individual categories; Shift-click selects a range.";
 
   let metadata = null;
   let rows = [];
   let columnIndex = {};
   let categories = [];
+  let selectedCategoryNames = new Set();
   let applyTimer = null;
   let renderSequence = 0;
   let minimumWasCustomized = false;
@@ -163,6 +165,7 @@
       withdrawals: element("withdrawals-checkbox"),
       publicDebt: element("public-debt-checkbox"),
       categoryFilter: element("category-filter-checkbox"),
+      categorySearch: element("category-search-input"),
       categorySelect: element("category-select"),
       categorySummary: element("category-selection-summary"),
       categorySelectedList: element("category-selection-list"),
@@ -180,12 +183,83 @@
     ui.withdrawals.checked = DEFAULTS.withdrawals;
     ui.publicDebt.checked = DEFAULTS.publicDebt;
     ui.categoryFilter.checked = DEFAULTS.categoryFilter;
+    ui.categorySearch.value = "";
+    ui.categorySearch.disabled = true;
     ui.categorySelect.disabled = true;
-    Array.from(ui.categorySelect.options).forEach((option) => {
-      option.selected = false;
-    });
+    selectedCategoryNames.clear();
+    renderCategoryOptions(ui);
     minimumWasCustomized = false;
     lastMetricMinimum = metricMinimum(DEFAULTS.metric);
+  }
+
+  function categorySearchQuery(ui) {
+    return ui.categorySearch.value.trim().toLowerCase();
+  }
+
+  function visibleCategoryList(ui) {
+    const query = categorySearchQuery(ui);
+    if (query === "") {
+      return categories;
+    }
+    return categories.filter((category) => category.toLowerCase().includes(query));
+  }
+
+  function selectedCategoryList() {
+    return categories.filter((category) => selectedCategoryNames.has(category));
+  }
+
+  function syncSelectedCategoriesFromSelect(ui) {
+    const visibleValues = new Set();
+    Array.from(ui.categorySelect.options).forEach((option) => {
+      if (!option.disabled) {
+        visibleValues.add(option.value);
+      }
+    });
+    visibleValues.forEach((category) => {
+      selectedCategoryNames.delete(category);
+    });
+    Array.from(ui.categorySelect.selectedOptions).forEach((option) => {
+      if (!option.disabled) {
+        selectedCategoryNames.add(option.value);
+      }
+    });
+  }
+
+  function renderCategoryOptions(ui = controls()) {
+    const select = ui.categorySelect;
+    window.MacroObservatory.clearChildren(select);
+    ui.categorySearch.disabled = !ui.categoryFilter.checked;
+    ui.categorySelect.disabled = !ui.categoryFilter.checked;
+
+    if (categories.length === 0) {
+      setText("category-help", "Loading categories");
+      return;
+    }
+
+    const visibleCategories = visibleCategoryList(ui);
+    const fragment = document.createDocumentFragment();
+    if (visibleCategories.length === 0) {
+      const option = document.createElement("option");
+      option.disabled = true;
+      option.textContent = "No matching categories";
+      fragment.appendChild(option);
+    } else {
+      visibleCategories.forEach((category) => {
+        const option = document.createElement("option");
+        option.value = category;
+        option.textContent = category;
+        option.selected = selectedCategoryNames.has(category);
+        fragment.appendChild(option);
+      });
+    }
+    select.appendChild(fragment);
+
+    const categoryCount = window.MacroObservatory.formatInteger(categories.length);
+    const visibleCount = window.MacroObservatory.formatInteger(visibleCategories.length);
+    const helpPrefix = categorySearchQuery(ui) === ""
+      ? `${categoryCount} categories available.`
+      : `Showing ${visibleCount} of ${categoryCount} categories.`;
+    setText("category-help", `${helpPrefix} ${CATEGORY_HELP_SUFFIX}`);
   }
 
   function populateCategories() {
@@ -198,34 +272,15 @@
       }
     });
     categories = Array.from(categorySet).sort((left, right) => left.localeCompare(right));
-
-    const select = element("category-select");
-    window.MacroObservatory.clearChildren(select);
-    const fragment = document.createDocumentFragment();
-    categories.forEach((category) => {
-      const option = document.createElement("option");
-      option.value = category;
-      option.textContent = category;
-      fragment.appendChild(option);
-    });
-    select.appendChild(fragment);
-    setText(
-      "category-help",
-      `${window.MacroObservatory.formatInteger(categories.length)} categories available. Ctrl-click toggles individual categories; Shift-click selects a range.`
-    );
-  }
-
-  function selectedCategoryList(ui) {
-    return Array.from(ui.categorySelect.selectedOptions).map((option) => option.value);
+    renderCategoryOptions();
   }
 
   function selectedCategorySet(ui) {
     if (!ui.categoryFilter.checked) {
       return null;
     }
-    return new Set(selectedCategoryList(ui));
+    return new Set(selectedCategoryList());
   }
-
   function startDateFromYear(value) {
     const parsed = Number.parseInt(value, 10);
     const year = Number.isFinite(parsed) ? parsed : DEFAULTS.yearStart;
@@ -242,7 +297,7 @@
     const includeWithdrawals = ui.withdrawals.checked;
     const includePublicDebt = ui.publicDebt.checked;
     const selectedCategories = selectedCategorySet(ui);
-    const selectedCategoriesList = selectedCategoryList(ui);
+    const selectedCategoriesList = selectedCategoryList();
     const rowIndexes = [];
     const values = [];
     const categoryCounts = new Map();
@@ -586,14 +641,20 @@
     ui.withdrawals.addEventListener("change", scheduleApplyFilters);
     ui.publicDebt.addEventListener("change", scheduleApplyFilters);
     ui.categoryFilter.addEventListener("change", () => {
-      ui.categorySelect.disabled = !ui.categoryFilter.checked;
+      renderCategoryOptions(ui);
       scheduleApplyFilters();
     });
-    ui.categorySelect.addEventListener("change", scheduleApplyFilters);
+    ui.categorySearch.addEventListener("input", () => {
+      syncSelectedCategoriesFromSelect(ui);
+      renderCategoryOptions(ui);
+    });
+    ui.categorySelect.addEventListener("change", () => {
+      syncSelectedCategoriesFromSelect(ui);
+      scheduleApplyFilters();
+    });
     ui.categoryClear.addEventListener("click", () => {
-      Array.from(ui.categorySelect.options).forEach((option) => {
-        option.selected = false;
-      });
+      selectedCategoryNames.clear();
+      renderCategoryOptions(ui);
       scheduleApplyFilters();
     });
     ui.reset.addEventListener("click", () => {
