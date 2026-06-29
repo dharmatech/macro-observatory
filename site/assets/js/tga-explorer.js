@@ -164,6 +164,9 @@
       publicDebt: element("public-debt-checkbox"),
       categoryFilter: element("category-filter-checkbox"),
       categorySelect: element("category-select"),
+      categorySummary: element("category-selection-summary"),
+      categorySelectedList: element("category-selection-list"),
+      categoryClear: element("category-clear-button"),
       reset: element("reset-button")
     };
   }
@@ -206,14 +209,21 @@
       fragment.appendChild(option);
     });
     select.appendChild(fragment);
-    setText("category-help", `${window.MacroObservatory.formatInteger(categories.length)} categories available`);
+    setText(
+      "category-help",
+      `${window.MacroObservatory.formatInteger(categories.length)} categories available. Ctrl-click toggles individual categories; Shift-click selects a range.`
+    );
+  }
+
+  function selectedCategoryList(ui) {
+    return Array.from(ui.categorySelect.selectedOptions).map((option) => option.value);
   }
 
   function selectedCategorySet(ui) {
     if (!ui.categoryFilter.checked) {
       return null;
     }
-    return new Set(Array.from(ui.categorySelect.selectedOptions).map((option) => option.value));
+    return new Set(selectedCategoryList(ui));
   }
 
   function startDateFromYear(value) {
@@ -232,9 +242,11 @@
     const includeWithdrawals = ui.withdrawals.checked;
     const includePublicDebt = ui.publicDebt.checked;
     const selectedCategories = selectedCategorySet(ui);
+    const selectedCategoriesList = selectedCategoryList(ui);
     const rowIndexes = [];
     const values = [];
     const categoryCounts = new Map();
+    const categoryCandidateCounts = new Map();
     let latestDate = null;
 
     const dateIndex = requiredColumn("record_date");
@@ -260,12 +272,13 @@
       if (!includePublicDebt && category.toLowerCase().includes("public debt")) {
         continue;
       }
-      if (selectedCategories !== null && !selectedCategories.has(category)) {
+      const signedValue = signedMetricValue(row, metric);
+      if (signedValue === null || Math.abs(signedValue) <= minimum) {
         continue;
       }
 
-      const signedValue = signedMetricValue(row, metric);
-      if (signedValue === null || Math.abs(signedValue) <= minimum) {
+      categoryCandidateCounts.set(category, (categoryCandidateCounts.get(category) || 0) + 1);
+      if (selectedCategories !== null && !selectedCategories.has(category)) {
         continue;
       }
 
@@ -285,6 +298,9 @@
       rowIndexes,
       values,
       categoryCounts,
+      categoryCandidateCounts,
+      selectedCategories: selectedCategoriesList,
+      categoryFilterActive: ui.categoryFilter.checked,
       latestDate
     };
   }
@@ -316,6 +332,52 @@
     }
   }
 
+  function renderCategorySelectionFeedback(filtered) {
+    const ui = controls();
+    const selected = filtered.selectedCategories || [];
+    const visibleSelected = selected.filter((category) => {
+      return (filtered.categoryCandidateCounts.get(category) || 0) > 0;
+    }).length;
+
+    ui.categoryClear.disabled = selected.length === 0;
+    if (!filtered.categoryFilterActive) {
+      ui.categorySummary.textContent = selected.length === 0
+        ? "Category filter off"
+        : `Category filter off, ${window.MacroObservatory.formatInteger(selected.length)} selected`;
+    } else {
+      ui.categorySummary.textContent = `${window.MacroObservatory.formatInteger(selected.length)} selected, ${window.MacroObservatory.formatInteger(visibleSelected)} visible`;
+    }
+
+    window.MacroObservatory.clearChildren(ui.categorySelectedList);
+    ui.categorySelectedList.hidden = selected.length === 0;
+    selected.forEach((category) => {
+      const count = filtered.categoryCandidateCounts.get(category) || 0;
+      const item = document.createElement("div");
+      item.className = "category-selection-item";
+      if (filtered.categoryFilterActive && count === 0) {
+        item.classList.add("category-selection-item-muted");
+      }
+
+      const name = document.createElement("span");
+      name.className = "category-selection-name";
+      name.textContent = category;
+
+      const status = document.createElement("span");
+      status.className = "category-selection-status";
+      if (!filtered.categoryFilterActive) {
+        status.textContent = "saved";
+      } else if (count === 0) {
+        status.textContent = "no rows under current filters";
+      } else {
+        status.textContent = `${window.MacroObservatory.formatInteger(count)} rows`;
+      }
+
+      item.appendChild(name);
+      item.appendChild(status);
+      ui.categorySelectedList.appendChild(item);
+    });
+  }
+
   function updateFilterSummary(filtered) {
     const filteredRows = filtered.rowIndexes.length;
     const filteredCategories = filtered.categoryCounts.size;
@@ -329,6 +391,7 @@
       "filtered-range-label",
       `${window.MacroObservatory.formatInteger(filteredRows)} rows, ${window.MacroObservatory.formatInteger(filteredCategories)} categories, max ${window.MacroObservatory.formatInteger(maxRows)}`
     );
+    renderCategorySelectionFeedback(filtered);
   }
 
   function buildTraces(filtered) {
@@ -527,6 +590,12 @@
       scheduleApplyFilters();
     });
     ui.categorySelect.addEventListener("change", scheduleApplyFilters);
+    ui.categoryClear.addEventListener("click", () => {
+      Array.from(ui.categorySelect.options).forEach((option) => {
+        option.selected = false;
+      });
+      scheduleApplyFilters();
+    });
     ui.reset.addEventListener("click", () => {
       resetControls();
       scheduleApplyFilters();

@@ -100,6 +100,11 @@
           </label>
           <select id="category-select" class="category-select" multiple size="12" disabled aria-label="Transaction categories"></select>
           <p class="control-help" id="category-help">Loading categories</p>
+          <div class="category-feedback-row">
+            <p class="control-help" id="category-selection-summary">Category filter off</p>
+            <button class="secondary-button category-clear-button" id="category-clear-button" type="button" disabled>Clear selected</button>
+          </div>
+          <div class="category-selection-list" id="category-selection-list" aria-live="polite" hidden></div>
         </fieldset>
 
         <div class="button-row">
