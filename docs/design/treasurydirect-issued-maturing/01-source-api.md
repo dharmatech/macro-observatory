@@ -67,6 +67,62 @@ Once both adapters can produce the same normalized model, add parity checks over
 
 Only retire the TreasuryDirect adapter after the newer source has proven parity for the report and has stable enough documentation to be a better operational dependency.
 
+## Fiscal Service API Community Evidence
+
+A rendered copy of the Fiscal Service API Community page shows a newer official API surface named:
+
+```text
+US Treasury Marketable Securities Experience API 2.0
+```
+
+The API console inside that page identifies the runtime API as:
+
+```text
+API title: Marketable Securities APIs
+Version: v1
+```
+
+The page describes the dataset as marketable Treasury securities that have been announced, auctioned, or bought back. It explicitly names CUSIP, auction date, issue date, security type, security term, maturity date, and other descriptors for announced and auctioned securities. It also describes buyback data with operation date, CUSIP, maturity date, and other descriptors.
+
+The rendered page lists these server choices:
+
+```text
+Mocking Service
+https://gov.anypoint.mulesoft.com:443/mocking/api/v1/sources/exchange/assets/ee1361fc-22ec-4c9f-9b34-046766cdd066/us-treasury-marketable-securities-exp-api/2.0.34/m
+
+Testing Instance (Does not contain production data)
+https://api-preprod.fiscal.treasury.gov/ap/acc/exp/v1/marketable-securities
+
+Production
+https://api.fiscal.treasury.gov/ap/exp/v1/marketable-securities
+```
+
+The rendered endpoint list includes:
+
+```text
+GET /securities/announced
+GET /securities/auctioned
+GET /securities/upcoming
+GET /securities/{cusip}/{MM}/{DD}/{YYYY}
+GET /securities/{type}
+GET /securities/stats
+GET /schemas
+GET /schemas/buybacks
+GET /schemas/buybacks/announcements
+GET /schemas/buybacks/results
+GET /buybacks
+GET /buybacks/{operationStartDTM}
+GET /buybacks/special
+GET /buybacks/special/expired
+```
+
+The page also references `Security clientId - x-client-enforcement`. A direct unauthenticated probe of production endpoints returned HTTP 401 with:
+
+```json
+{ "error": "Invalid client id or secret" }
+```
+
+This means the newer Fiscal Service API is not a drop-in public replacement for the legacy unauthenticated TreasuryDirect `TA_WS` endpoint. It may become the preferred long-term source, but using it requires API access credentials and parity validation.
 ## Endpoint Shape
 
 Base endpoint:
@@ -202,7 +258,7 @@ Numeric fields arrive as strings. The adapter should parse amount fields through
 
 Projected values must be labeled clearly in the derived dataset and UI. They should not be confused with completed issuance.
 
-The official API Community page should be revisited if we need a stronger machine-readable contract. For the first implementation, the practical contract is the combination of TreasuryDirect official pages, the legacy working script, and the live `TA_WS` response checks above.
+The official API Community page now gives us a concrete newer API surface, but not a proven replacement. For the first implementation, the practical contract is still the combination of TreasuryDirect official pages, the legacy working script, and the live `TA_WS` response checks above.
 
 ## Open Questions
 
