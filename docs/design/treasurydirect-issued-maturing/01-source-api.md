@@ -342,6 +342,23 @@ Projected values must be labeled clearly in the derived dataset and UI. They sho
 
 The official API Community page now gives us a concrete newer API surface, but not a proven replacement. For the first implementation, the practical contract is still the combination of TreasuryDirect official pages, the legacy working script, and the live `TA_WS` response checks above.
 
+## Future Research: Security Row Stability
+
+A later research checkpoint can investigate whether some TreasuryDirect security rows become stable enough to retain in a canonical historical cache.
+
+The working hypothesis is that rows may stabilize after the relevant auction and issue lifecycle has completed. Candidate stability signals include:
+
+- `auctionDate` has passed,
+- `issueDate` has passed,
+- result fields such as `totalAccepted`, rates, prices, `offeringAmount`, and `somaTendered` are populated,
+- `updatedTimestamp` stops changing across repeated fetches.
+
+`maturityDate` should not be treated as the primary stability boundary without evidence. Long bonds can mature decades later, and waiting for maturity would make canonical history impractical.
+
+A practical test would track short-term Bills across announcement, auction, issue, and maturity windows by retaining repeated snapshots and comparing row changes over time. If those rows become stable after auction/issue settlement, a future canonical securities history cache could be designed separately from this report's current rolling-window cache.
+
+This is explicitly out of scope for the first adapter checkpoint.
+
 ## Open Questions
 
 - Should the current rolling-window source keep one combined file with `query_mode`, or three current files by query mode?
@@ -349,4 +366,5 @@ The official API Community page now gives us a concrete newer API surface, but n
 - Should the browser page include a terminal-style artifact alongside the native table?
 - Should the date window be user-configurable in the static page, precomputed in several windows, or fixed at publish time?
 - If report snapshots are added, what retention policy and storage path should they use?
+- When, if ever, does a TreasuryDirect security row become stable enough to promote into a canonical historical cache?
 - How should TIPS and FRNs be represented? The legacy table focuses on Bills, Notes, and Bonds, while TreasuryDirect's UI notes that FRNs are listed with Notes and TIPS with Bonds.
