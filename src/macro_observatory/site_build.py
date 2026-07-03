@@ -22,11 +22,13 @@ SOURCE_DATASET_IDS = (
     "treasury_dts_operating_cash_balance",
     "treasury_dts_deposits_withdrawals_operating_cash",
     "treasury_od_auctions_query",
+    "treasurydirect_securities_current",
 )
 DERIVED_DATASET_IDS = (
     "treasury_tga",
     "treasury_dts_deposits_withdrawals_operating_cash_explorer",
     "treasury_securities_net_issuance",
+    "treasurydirect_issued_maturing_current",
     "fed_net_liquidity",
 )
 PUBLISH_DATASET_IDS = (
@@ -34,6 +36,7 @@ PUBLISH_DATASET_IDS = (
     "treasury_dts_deposits_withdrawals_operating_cash_explorer",
     "treasury_securities_net_issuance",
     "fred_sp500",
+    "treasurydirect_issued_maturing_current",
 )
 SourceUpdateMode = Literal["update", "targeted", "from-cache"]
 

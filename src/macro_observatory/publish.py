@@ -24,6 +24,8 @@ TGA_EXPLORER_DATASET_ID = "treasury_dts_deposits_withdrawals_operating_cash_expl
 TGA_EXPLORER_ARTIFACT_STEM = "tga-explorer"
 TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID = "treasury_securities_net_issuance"
 TREASURY_SECURITIES_NET_ISSUANCE_ARTIFACT_STEM = "treasury-securities-net-issuance"
+TREASURYDIRECT_ISSUED_MATURING_CURRENT_DATASET_ID = "treasurydirect_issued_maturing_current"
+TREASURYDIRECT_ISSUED_MATURING_ARTIFACT_STEM = "treasurydirect-issued-maturing"
 FRED_SP500_DATASET_ID = "fred_sp500"
 FRED_SP500_ARTIFACT_STEM = "sp500"
 TGA_EXPLORER_RENDER_GUARDRAIL_ROWS = 10_000
@@ -58,6 +60,31 @@ TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS = (
     "net_issuance",
 )
 FRED_SP500_COLUMNS = ("date", "value")
+TREASURYDIRECT_ISSUED_MATURING_COLUMNS = (
+    "date",
+    "issued_bills",
+    "maturing_bills",
+    "bills_change",
+    "issued_notes",
+    "maturing_notes",
+    "notes_change",
+    "issued_bonds",
+    "maturing_bonds",
+    "bonds_change",
+    "issued",
+    "maturing",
+    "change",
+    "change_with_weekend",
+    "weekend",
+    "auction",
+    "auction_issuing",
+    "offering_amount",
+    "soma_tendered",
+    "projected_change",
+    "projected_change_bills",
+    "projected_change_notes",
+    "projected_change_bonds",
+)
 FED_NET_LIQUIDITY_SERIES: dict[str, dict[str, str]] = {
     "walcl": {"label": "WALCL", "units": "U.S. dollars", "role": "component"},
     "rrp": {"label": "RRP", "units": "U.S. dollars", "role": "component"},
@@ -69,6 +96,22 @@ FED_NET_LIQUIDITY_SERIES: dict[str, dict[str, str]] = {
         "role": "total",
     },
 }
+TREASURYDIRECT_ISSUED_MATURING_SERIES: dict[str, dict[str, str]] = {
+    "issued": {"label": "Issued", "units": "U.S. dollars", "role": "total"},
+    "maturing": {"label": "Maturing", "units": "U.S. dollars", "role": "total"},
+    "change": {"label": "Change", "units": "U.S. dollars", "role": "primary_metric"},
+    "change_with_weekend": {
+        "label": "Change With Weekend",
+        "units": "U.S. dollars",
+        "role": "primary_metric_adjusted",
+    },
+    "projected_change": {
+        "label": "Projected Change",
+        "units": "U.S. dollars",
+        "role": "projection",
+    },
+}
+
 TREASURY_SECURITIES_NET_ISSUANCE_SERIES: dict[str, dict[str, str]] = {
     "issued": {"label": "Issued", "units": "U.S. dollars", "role": "component"},
     "maturing": {"label": "Maturing", "units": "U.S. dollars", "role": "component"},
@@ -201,6 +244,41 @@ def _fred_sp500_metadata_extra(
     return payload
 
 
+def _treasurydirect_issued_maturing_metadata_extra(
+    published_df: pd.DataFrame,
+    metadata: DatasetMetadata,
+) -> dict[str, Any]:
+    source_metadata = metadata.source_metadata or {}
+    return {
+        "source_endpoint": source_metadata.get("source_endpoint"),
+        "source_cache_file": _source_cache_file(source_metadata),
+        "source_row_count": source_metadata.get("source_row_count"),
+        "query_window_start_date": source_metadata.get("query_window_start_date"),
+        "query_window_end_date_exclusive": source_metadata.get("query_window_end_date_exclusive"),
+        "security_types": source_metadata.get("security_types", []),
+        "value_columns": source_metadata.get("value_columns", []),
+        "output_columns": source_metadata.get("output_columns", list(published_df.columns)),
+        "date_policy": source_metadata.get("date_policy"),
+        "weekend_policy": source_metadata.get("weekend_policy"),
+        "projection_policy": source_metadata.get("projection_policy"),
+        "projected_formula": source_metadata.get("projected_formula"),
+        "report_groups": {
+            "Bills": ["issued_bills", "maturing_bills", "bills_change", "projected_change_bills"],
+            "Notes": ["issued_notes", "maturing_notes", "notes_change", "projected_change_notes"],
+            "Bonds": ["issued_bonds", "maturing_bonds", "bonds_change", "projected_change_bonds"],
+            "Total": [
+                "issued",
+                "maturing",
+                "change",
+                "change_with_weekend",
+                "weekend",
+                "projected_change",
+            ],
+            "Auction": ["auction", "auction_issuing", "offering_amount", "soma_tendered"],
+        },
+    }
+
+
 def _treasury_securities_net_issuance_metadata_extra(
     published_df: pd.DataFrame,
     metadata: DatasetMetadata,
@@ -257,6 +335,14 @@ PUBLISH_CONFIGS = {
         columns=TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS,
         series=TREASURY_SECURITIES_NET_ISSUANCE_SERIES,
         metadata_extra_builder=_treasury_securities_net_issuance_metadata_extra,
+        json_orientation="split",
+    ),
+    TREASURYDIRECT_ISSUED_MATURING_CURRENT_DATASET_ID: PublishConfig(
+        dataset_id=TREASURYDIRECT_ISSUED_MATURING_CURRENT_DATASET_ID,
+        artifact_stem=TREASURYDIRECT_ISSUED_MATURING_ARTIFACT_STEM,
+        columns=TREASURYDIRECT_ISSUED_MATURING_COLUMNS,
+        series=TREASURYDIRECT_ISSUED_MATURING_SERIES,
+        metadata_extra_builder=_treasurydirect_issued_maturing_metadata_extra,
         json_orientation="split",
     ),
     FRED_SP500_DATASET_ID: PublishConfig(

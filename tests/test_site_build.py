@@ -316,3 +316,21 @@ def test_build_static_site_requires_fred_api_key_when_requested(
             site_dir=tmp_path / "site",
             require_fred_api_key=True,
         )
+
+
+def test_static_site_links_treasurydirect_issued_maturing_page() -> None:
+    site_root = Path("site")
+    index_html = (site_root / "index.html").read_text(encoding="utf-8")
+    page_html = (site_root / "pages" / "treasurydirect-issued-maturing" / "index.html").read_text(
+        encoding="utf-8"
+    )
+    script_js = (site_root / "assets" / "js" / "treasurydirect-issued-maturing.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert "pages/treasurydirect-issued-maturing/" in index_html
+    assert "5 pages" in index_html
+    assert "../../data/treasurydirect-issued-maturing.csv" in page_html
+    assert "../../assets/js/treasurydirect-issued-maturing.js" in page_html
+    assert "../../data/treasurydirect-issued-maturing.json" in script_js
+    assert "../../data/treasurydirect-issued-maturing-metadata.json" in script_js

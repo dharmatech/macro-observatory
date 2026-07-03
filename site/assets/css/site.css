@@ -971,3 +971,85 @@ body.chart-expanded-active {
     height: 420px;
   }
 }
+
+.report-shell {
+  width: min(1500px, calc(100% - 40px));
+}
+
+.report-table-section {
+  margin-top: 20px;
+}
+
+.issued-maturing-table-frame {
+  max-height: calc(100vh - 260px);
+  min-height: 520px;
+  overflow: auto;
+}
+
+.issued-maturing-table {
+  min-width: 2100px;
+  font-size: 12px;
+}
+
+.issued-maturing-table th,
+.issued-maturing-table td {
+  padding: 9px 10px;
+}
+
+.issued-maturing-table thead th {
+  position: sticky;
+  z-index: 2;
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.issued-maturing-table thead tr:first-child th {
+  top: 0;
+  z-index: 4;
+}
+
+.issued-maturing-table thead tr:nth-child(2) th {
+  top: 34px;
+  z-index: 3;
+}
+
+.issued-maturing-table .group-header {
+  color: var(--text);
+  text-align: center;
+}
+
+.issued-maturing-table .sticky-column {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  min-width: 112px;
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--border);
+}
+
+.issued-maturing-table tbody .sticky-column {
+  z-index: 1;
+}
+
+.issued-maturing-table .date-cell {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.issued-maturing-table .auction-marker-cell {
+  color: var(--primary-strong);
+  font-family: var(--mono);
+  font-weight: 800;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .report-shell {
+    width: min(100% - 28px, 1500px);
+  }
+
+  .issued-maturing-table-frame {
+    max-height: 70vh;
+    min-height: 430px;
+  }
+}

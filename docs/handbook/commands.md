@@ -628,6 +628,45 @@ Use a different static-site output directory when needed:
 uv run macro-observatory publish treasury_dts_deposits_withdrawals_operating_cash_explorer --site-dir scratch-site
 ```
 
+## Publish TreasuryDirect Issued/Maturing Artifacts
+
+Publish browser-facing artifacts from the derived TreasuryDirect issued/maturing current report cache:
+
+```powershell
+uv run macro-observatory publish treasurydirect_issued_maturing_current
+```
+
+This command reads:
+
+```text
+data/cache/derived/treasurydirect_issued_maturing_current.parquet
+data/cache/metadata/treasurydirect_issued_maturing_current.json
+```
+
+and writes generated static-site artifacts:
+
+```text
+site/data/treasurydirect-issued-maturing.json
+site/data/treasurydirect-issued-maturing.csv
+site/data/treasurydirect-issued-maturing-metadata.json
+```
+
+The JSON artifact uses compact split orientation and keeps the report table columns in raw U.S. dollars. The browser page formats values in billions and preserves the wide report shape with grouped Bills, Notes, Bonds, Total, and Auction columns.
+
+`site/data/` is generated output and is ignored by git.
+
+If the derived cache is missing, run this first:
+
+```powershell
+uv run macro-observatory build-derived treasurydirect_issued_maturing_current
+```
+
+Use a different static-site output directory when needed:
+
+```powershell
+uv run macro-observatory publish treasurydirect_issued_maturing_current --site-dir scratch-site
+```
+
 ## Serve Static Site
 
 Serve the generated static site locally:
@@ -647,7 +686,9 @@ The root page lists available static pages. Current dashboard pages are:
 ```text
 http://localhost:8000/pages/fed-net-liquidity/
 http://localhost:8000/pages/tga-explorer/
+http://localhost:8000/pages/tga-top/
 http://localhost:8000/pages/treasury-securities-net-issuance/
+http://localhost:8000/pages/treasurydirect-issued-maturing/
 ```
 
 The Fed Net Liquidity page loads these published artifacts:
@@ -657,7 +698,7 @@ site/data/fed-net-liquidity.json
 site/data/fed-net-liquidity-metadata.json
 ```
 
-The TGA Explorer page loads these published artifacts:
+The TGA Explorer and TGA Top pages load these published artifacts:
 
 ```text
 site/data/tga-explorer.json
@@ -669,13 +710,15 @@ The Treasury Securities Net Issuance page loads these published artifacts:
 ```text
 site/data/treasury-securities-net-issuance.json
 site/data/treasury-securities-net-issuance-metadata.json
-```
-
-The SP500 market-context artifact is generated for a future Treasury Securities overlay, but no current page consumes it yet:
-
-```text
 site/data/sp500.json
 site/data/sp500-metadata.json
+```
+
+The TreasuryDirect Issued/Maturing page loads these published artifacts:
+
+```text
+site/data/treasurydirect-issued-maturing.json
+site/data/treasurydirect-issued-maturing-metadata.json
 ```
 
 If the Fed Net Liquidity files are missing or stale, run this first:
@@ -684,7 +727,7 @@ If the Fed Net Liquidity files are missing or stale, run this first:
 uv run macro-observatory publish fed_net_liquidity
 ```
 
-If the TGA Explorer files are missing or stale, run this first:
+If the TGA Explorer or TGA Top files are missing or stale, run this first:
 
 ```powershell
 uv run macro-observatory publish treasury_dts_deposits_withdrawals_operating_cash_explorer
@@ -694,6 +737,13 @@ If the Treasury Securities Net Issuance files are missing or stale, run this fir
 
 ```powershell
 uv run macro-observatory publish treasury_securities_net_issuance
+uv run macro-observatory publish fred_sp500
+```
+
+If the TreasuryDirect Issued/Maturing files are missing or stale, run this first:
+
+```powershell
+uv run macro-observatory publish treasurydirect_issued_maturing_current
 ```
 
 Use a different site directory or port when needed:
@@ -701,7 +751,6 @@ Use a different site directory or port when needed:
 ```powershell
 uv run macro-observatory serve-site --site-dir scratch-site --port 8123
 ```
-
 
 ## Build Static Site Artifacts
 
@@ -739,6 +788,7 @@ Update selected source caches and then rebuild all current derived caches and br
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
+uv run macro-observatory build-site --source-dataset treasurydirect_securities_current
 uv run macro-observatory build-site --source-dataset fred_sp500 --require-fred-api-key
 uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```
@@ -1116,6 +1166,7 @@ uv run macro-observatory --data-dir scratch-data publish fed_net_liquidity --sit
 uv run macro-observatory --data-dir scratch-data publish treasury_dts_deposits_withdrawals_operating_cash_explorer --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data publish treasury_securities_net_issuance --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data publish fred_sp500 --site-dir scratch-site
+uv run macro-observatory --data-dir scratch-data publish treasurydirect_issued_maturing_current --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data storage-report --site-dir scratch-site
 uv run macro-observatory --data-dir scratch-data info nyfed_rrp
 uv run macro-observatory --data-dir scratch-data info treasury_dts_operating_cash_balance

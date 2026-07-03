@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TreasuryDirect Issued/Maturing | Macro Observatory</title>
+  <link rel="stylesheet" href="../../assets/css/site.css">
+  <script src="../../assets/js/site.js" defer></script>
+  <script src="../../assets/js/treasurydirect-issued-maturing.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand-link" href="../../">Macro Observatory</a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="../../">Pages</a>
+      <a href="../../data/treasurydirect-issued-maturing.csv">CSV</a>
+    </nav>
+  </header>
+
+  <main class="site-shell dashboard-shell report-shell">
+    <section class="page-heading dashboard-heading">
+      <div>
+        <p class="eyebrow">TreasuryDirect</p>
+        <h1>TreasuryDirect Issued/Maturing</h1>
+        <p class="heading-summary" id="dataset-summary">Loading dataset metadata</p>
+      </div>
+      <div class="metadata-block" aria-label="Dataset build details">
+        <span>Built</span>
+        <strong id="built-at">Loading</strong>
+      </div>
+    </section>
+
+    <div class="alert" id="page-alert" role="alert" hidden></div>
+    <div class="loading-row" id="loading-row">Loading TreasuryDirect issued/maturing metadata...</div>
+
+    <section class="metric-grid" aria-label="Report summary">
+      <article class="metric-tile">
+        <span>Window Start</span>
+        <strong id="metric-window-start">-</strong>
+      </article>
+      <article class="metric-tile">
+        <span>Window End</span>
+        <strong id="metric-window-end">-</strong>
+      </article>
+      <article class="metric-tile metric-primary">
+        <span>Report Rows</span>
+        <strong id="metric-row-count">-</strong>
+      </article>
+      <article class="metric-tile">
+        <span>Latest Change</span>
+        <strong id="metric-latest-change">-</strong>
+      </article>
+    </section>
+
+    <section class="table-section report-table-section" aria-labelledby="report-heading">
+      <div class="section-heading-row">
+        <h2 id="report-heading">Current Window Report</h2>
+        <span class="range-label" id="report-range-label">-</span>
+      </div>
+      <div class="table-frame issued-maturing-table-frame">
+        <table class="data-table issued-maturing-table">
+          <thead>
+            <tr>
+              <th class="sticky-column" rowspan="2">Date</th>
+              <th class="group-header" colspan="4">Bills</th>
+              <th class="group-header" colspan="4">Notes</th>
+              <th class="group-header" colspan="4">Bonds</th>
+              <th class="group-header" colspan="6">Total</th>
+              <th class="group-header" colspan="4">Auction</th>
+            </tr>
+            <tr>
+              <th>Issued</th>
+              <th>Maturing</th>
+              <th>Change</th>
+              <th>Projected</th>
+              <th>Issued</th>
+              <th>Maturing</th>
+              <th>Change</th>
+              <th>Projected</th>
+              <th>Issued</th>
+              <th>Maturing</th>
+              <th>Change</th>
+              <th>Projected</th>
+              <th>Issued</th>
+              <th>Maturing</th>
+              <th>Change</th>
+              <th>Weekend Adj.</th>
+              <th>Weekend</th>
+              <th>Projected</th>
+              <th>Flag</th>
+              <th>Issuing</th>
+              <th>Offering</th>
+              <th>SOMA</th>
+            </tr>
+          </thead>
+          <tbody id="report-table-body"></tbody>
+        </table>
+      </div>
+      <div class="diagnostics-bar" id="diagnostics-bar">Rows - | Data - | Parse - | Render -</div>
+    </section>
+
+    <section class="details-grid explorer-details" aria-label="Dataset details">
+      <article class="detail-panel">
+        <h2>Dataset</h2>
+        <dl class="detail-list">
+          <div>
+            <dt>Units</dt>
+            <dd id="metadata-units">-</dd>
+          </div>
+          <div>
+            <dt>Date Policy</dt>
+            <dd id="metadata-date-policy">-</dd>
+          </div>
+          <div>
+            <dt>Weekend Policy</dt>
+            <dd id="metadata-weekend-policy">-</dd>
+          </div>
+          <div>
+            <dt>Projection Policy</dt>
+            <dd id="metadata-projection-policy">-</dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="detail-panel">
+        <h2>Source Rows</h2>
+        <div class="source-row-list" id="source-row-list"></div>
+      </article>
+    </section>
+  </main>
+
+  <noscript>
+    <div class="noscript-message">This page needs JavaScript to load the published data artifact.</div>
+  </noscript>
+</body>
+</html>

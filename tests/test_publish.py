@@ -185,6 +185,36 @@ def write_treasury_securities_input(tmp_path: Path) -> None:
     )
 
 
+def treasurydirect_issued_maturing_rows() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "date": ["2024-01-05", "2024-01-06"],
+            "issued_bills": [100_000_000_000.0, 0.0],
+            "maturing_bills": [40_000_000_000.0, 0.0],
+            "bills_change": [60_000_000_000.0, 0.0],
+            "issued_notes": [0.0, 200_000_000_000.0],
+            "maturing_notes": [0.0, 50_000_000_000.0],
+            "notes_change": [0.0, 150_000_000_000.0],
+            "issued_bonds": [0.0, 0.0],
+            "maturing_bonds": [0.0, 0.0],
+            "bonds_change": [0.0, 0.0],
+            "issued": [100_000_000_000.0, 200_000_000_000.0],
+            "maturing": [40_000_000_000.0, 50_000_000_000.0],
+            "change": [60_000_000_000.0, 150_000_000_000.0],
+            "change_with_weekend": [pd.NA, pd.NA],
+            "weekend": [pd.NA, pd.NA],
+            "auction": ["*", ""],
+            "auction_issuing": ["2024-01-08", ""],
+            "offering_amount": [120_000_000_000.0, 200_000_000_000.0],
+            "soma_tendered": [10_000_000_000.0, 0.0],
+            "projected_change": [90_000_000_000.0, 150_000_000_000.0],
+            "projected_change_bills": [90_000_000_000.0, pd.NA],
+            "projected_change_notes": [pd.NA, 150_000_000_000.0],
+            "projected_change_bonds": [pd.NA, pd.NA],
+        }
+    )
+
+
 def test_publish_fed_net_liquidity_requires_derived_cache(tmp_path: Path) -> None:
     with pytest.raises(PublishDatasetError) as exc_info:
         publish_dataset("fed_net_liquidity", data_dir=tmp_path, site_dir=tmp_path / "site")
@@ -198,6 +228,7 @@ def test_publish_rejects_dataset_without_publish_config(tmp_path: Path) -> None:
 
     assert "does not have a publish config" in str(exc_info.value)
     assert "fed_net_liquidity" in str(exc_info.value)
+
 
 def test_publish_sp500_writes_market_context_artifacts(tmp_path: Path) -> None:
     replace_dataset(
@@ -361,6 +392,105 @@ def test_publish_treasury_securities_net_issuance_writes_browser_artifacts(
     assert metadata["render_guardrail"] == {"max_points": 25000}
     assert metadata["series"]["net_issuance"]["label"] == "Net Issuance"
     assert "Future maturity dates" in metadata["future_maturity_policy"]
+
+
+def test_publish_treasurydirect_issued_maturing_writes_browser_artifacts(
+    tmp_path: Path,
+) -> None:
+    replace_dataset(
+        get_dataset_spec("treasurydirect_issued_maturing_current", tmp_path),
+        treasurydirect_issued_maturing_rows(),
+        source_metadata={
+            "derived_from": ["treasurydirect_securities_current"],
+            "source_cache": str(
+                tmp_path / "cache" / "sources" / "treasurydirect_securities_current.parquet"
+            ),
+            "source_endpoint": "https://example.test/TA_WS/securities/search",
+            "source_row_count": 8,
+            "source_rows": {"issueDate": 2, "maturityDate": 2, "auctionDate": 1},
+            "query_window_start_date": "2024-01-05",
+            "query_window_end_date_exclusive": "2024-01-10",
+            "security_types": ["Bill", "Note", "Bond"],
+            "value_columns": ["issued", "maturing", "change"],
+            "date_policy": "query_start_date is included; query_end_date is excluded.",
+            "weekend_policy": "Weekend changes roll into the next weekday.",
+            "projection_policy": "Projected values use issue-date rows.",
+            "projected_formula": "projected_change = offering_amount - soma_tendered - maturing",
+        },
+    )
+
+    result = publish_dataset(
+        "treasurydirect_issued_maturing_current",
+        data_dir=tmp_path,
+        site_dir=tmp_path / "site",
+    )
+
+    assert result.dataset_id == "treasurydirect_issued_maturing_current"
+    assert result.rows_published == 2
+    assert result.json_path == tmp_path / "site" / "data" / "treasurydirect-issued-maturing.json"
+    assert result.csv_path == tmp_path / "site" / "data" / "treasurydirect-issued-maturing.csv"
+    assert (
+        result.metadata_path
+        == tmp_path / "site" / "data" / "treasurydirect-issued-maturing-metadata.json"
+    )
+
+    with result.json_path.open("r", encoding="utf-8") as f:
+        payload = json.load(f)
+    assert payload["columns"] == [
+        "date",
+        "issued_bills",
+        "maturing_bills",
+        "bills_change",
+        "issued_notes",
+        "maturing_notes",
+        "notes_change",
+        "issued_bonds",
+        "maturing_bonds",
+        "bonds_change",
+        "issued",
+        "maturing",
+        "change",
+        "change_with_weekend",
+        "weekend",
+        "auction",
+        "auction_issuing",
+        "offering_amount",
+        "soma_tendered",
+        "projected_change",
+        "projected_change_bills",
+        "projected_change_notes",
+        "projected_change_bonds",
+    ]
+    assert payload["data"][0][0] == "2024-01-05"
+    assert payload["data"][0][3] == 60_000_000_000.0
+    assert payload["data"][0][13] is None
+    assert payload["data"][0][15] == "*"
+    assert payload["data"][1][21] == 150_000_000_000.0
+
+    csv_df = pd.read_csv(result.csv_path)
+    assert csv_df.columns.tolist() == payload["columns"]
+    assert csv_df.loc[0, "auction"] == "*"
+
+    with result.metadata_path.open("r", encoding="utf-8") as f:
+        metadata = json.load(f)
+    assert metadata["schema_version"] == 1
+    assert metadata["dataset_id"] == "treasurydirect_issued_maturing_current"
+    assert metadata["row_count"] == 2
+    assert metadata["date_range"] == {"min": "2024-01-05", "max": "2024-01-06"}
+    assert metadata["json_orientation"] == "split"
+    assert metadata["source_dataset_ids"] == ["treasurydirect_securities_current"]
+    assert metadata["source_endpoint"] == "https://example.test/TA_WS/securities/search"
+    assert metadata["source_cache_file"] == "treasurydirect_securities_current.parquet"
+    assert metadata["source_row_count"] == 8
+    assert metadata["query_window_end_date_exclusive"] == "2024-01-10"
+    assert metadata["report_groups"]["Bills"] == [
+        "issued_bills",
+        "maturing_bills",
+        "bills_change",
+        "projected_change_bills",
+    ]
+    assert metadata["series"]["change"]["role"] == "primary_metric"
+    assert "Weekend changes" in metadata["weekend_policy"]
 
 
 def test_publish_fed_net_liquidity_is_deterministic_for_same_cache(tmp_path: Path) -> None:
