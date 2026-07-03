@@ -53,14 +53,14 @@
       </article>
     </section>
 
-    <section class="explorer-layout" aria-label="TGA Top controls and daily snapshot">
-      <aside class="control-panel" aria-labelledby="controls-heading">
-        <div class="section-heading-row compact-heading-row">
+    <section class="tga-top-layout" aria-label="TGA Top controls and daily snapshot">
+      <section class="tga-top-control-strip" aria-labelledby="controls-heading">
+        <div class="tga-top-control-heading">
           <h2 id="controls-heading">Controls</h2>
           <span class="range-label" id="control-date-status">-</span>
         </div>
 
-        <label class="form-field" for="date-input">
+        <label class="form-field tga-top-date-field" for="date-input">
           <span>Date</span>
           <input id="date-input" type="date">
         </label>
@@ -71,9 +71,9 @@
           <button class="secondary-button" id="next-date-button" type="button">Next</button>
           <button class="secondary-button" id="latest-date-button" type="button">Latest</button>
         </div>
-      </aside>
+      </section>
 
-      <div class="explorer-main">
+      <div class="explorer-main tga-top-main">
         <section class="tga-top-table-grid" aria-label="Top deposits and withdrawals">
           <article class="detail-panel tga-top-table-panel" aria-labelledby="deposits-heading">
             <div class="section-heading-row">
