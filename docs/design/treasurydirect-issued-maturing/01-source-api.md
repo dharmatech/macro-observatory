@@ -22,7 +22,7 @@ During this checkpoint, the most relevant official pages found were:
 - TreasuryDirect Auction Query help: `https://www.treasurydirect.gov/auctions/auction-query/auction-query-help/`
 - Fiscal Service API Community securities page linked by TreasuryDirect: `https://api-community.fiscal.treasury.gov/s/communityapi/a01Qo00000pDeK7IAK/enterprise-apisustreasurymarketablesecuritiesexperienceapi`
 
-The Web Development APIs page says the securities API information has moved to the Fiscal Service API Community. The API Community page appears to be a JavaScript-heavy Salesforce/Anypoint page; the static fetch did not expose a directly readable OpenAPI or Swagger document in this pass.
+The Web Development APIs page says the securities API information has moved to the Fiscal Service API Community. The API Community page is JavaScript-heavy, but rendered captures show both a newer credential-gated Fiscal Service API and a `Historical Securities API Specifications` page for the legacy TreasuryDirect `TA_WS` endpoint.
 
 The Auction Query and Auction Query help pages are UI-oriented rather than endpoint-oriented, but they confirm the domain surface: security type filtering, date/date-range filtering, optional columns, and export formats. The `TA_WS` endpoint behavior below was verified directly against live TreasuryDirect responses.
 
@@ -30,16 +30,53 @@ The Auction Query and Auction Query help pages are UI-oriented rather than endpo
 
 The `TA_WS/securities/search` endpoint should be treated as an active legacy endpoint.
 
-We have not found current formal endpoint documentation for the exact URL contract used by the PowerShell script. It may have originally been discovered by inspecting TreasuryDirect URLs or browser traffic rather than by following a published developer spec.
+Rendered Fiscal Service API Community content includes a `Historical Securities API Specifications` page that documents the `TA_WS` base URL and several legacy endpoint patterns. The PowerShell script remains valuable as documentation by working example, but the endpoint is no longer purely reverse-engineered for our purposes.
 
 For this feature, the practical documentation stack is:
 
-1. The legacy PowerShell script as documentation by working example.
-2. Live endpoint probes that verify current behavior.
-3. TreasuryDirect Auction Query pages for user-facing domain context.
-4. Fiscal Service API Community documentation as a future migration candidate, not yet a proven replacement.
+1. Fiscal Service API Community `Historical Securities API Specifications` rendered page for the legacy `TA_WS` contract.
+2. The legacy PowerShell script as documentation by working example.
+3. Live endpoint probes that verify current behavior.
+4. TreasuryDirect Auction Query pages for user-facing domain context.
+5. Fiscal Service API Community newer API documentation as a future migration candidate, not yet a proven replacement.
 
 This should be an intentional dependency. Source code should make the legacy nature visible through naming and comments, but the derived report and web UI should not depend directly on TreasuryDirect-specific URL details.
+
+## Legacy TA_WS Documentation Evidence
+
+A rendered capture of the Fiscal Service API Community `Historical Securities API Specifications` page documents the legacy endpoint family directly.
+
+It lists the base URL as:
+
+```text
+https://www.treasurydirect.gov/TA_WS/
+```
+
+It also describes these endpoint patterns:
+
+```text
+/securities/Cusip(9#)/Date(MM/DD/YYYY)
+/securities/auctioned
+/securities/Type(Bill,Note,Bond,CMB,TIPS,FRN)
+/securities/search
+```
+
+The rendered text describes `/securities/auctioned` as returning auctioned securities, with a maximum of 250 results, ordered by auction date descending, issue date descending, and security term length ascending.
+
+The rendered text describes `/securities/search` as accepting parameter names that match camel-cased variable names. Examples include:
+
+```text
+auctionDate=2013-05-25
+interestRate=7.5
+auctionDate=notNull
+issueDate=today
+```
+
+The same section says dates accept `today`, parameters can use `notNull`, and `/securities/search` displays all securities by default when no parameters are passed.
+
+The rendered example URLs use `format=xhtml`, while the live endpoint also supports the `format=json` usage required by the PowerShell script and Macro Observatory adapter.
+
+This evidence means the legacy `TA_WS` endpoint is not merely an undocumented implementation detail. It is documented in the newer API Community as historical API behavior, but it should still be treated as legacy because the same page also presents a newer credential-gated Fiscal Service API surface.
 
 ## Future Fiscal Service Migration Path
 
