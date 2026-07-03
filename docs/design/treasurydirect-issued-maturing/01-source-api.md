@@ -26,6 +26,47 @@ The Web Development APIs page says the securities API information has moved to t
 
 The Auction Query and Auction Query help pages are UI-oriented rather than endpoint-oriented, but they confirm the domain surface: security type filtering, date/date-range filtering, optional columns, and export formats. The `TA_WS` endpoint behavior below was verified directly against live TreasuryDirect responses.
 
+## Legacy Endpoint Stance
+
+The `TA_WS/securities/search` endpoint should be treated as an active legacy endpoint.
+
+We have not found current formal endpoint documentation for the exact URL contract used by the PowerShell script. It may have originally been discovered by inspecting TreasuryDirect URLs or browser traffic rather than by following a published developer spec.
+
+For this feature, the practical documentation stack is:
+
+1. The legacy PowerShell script as documentation by working example.
+2. Live endpoint probes that verify current behavior.
+3. TreasuryDirect Auction Query pages for user-facing domain context.
+4. Fiscal Service API Community documentation as a future migration candidate, not yet a proven replacement.
+
+This should be an intentional dependency. Source code should make the legacy nature visible through naming and comments, but the derived report and web UI should not depend directly on TreasuryDirect-specific URL details.
+
+## Future Fiscal Service Migration Path
+
+Fiscal Data / Fiscal Service should be treated as the likely long-term destination if it becomes fully documented and functionally equivalent for this report.
+
+Do not switch sources just because newer documentation exists. The replacement source must reproduce the report semantics that matter:
+
+- issue-date window queries,
+- maturity-date window queries,
+- auction-date window queries,
+- `totalAccepted`-equivalent issued and maturing amounts,
+- `offeringAmount`-equivalent projection inputs,
+- `somaTendered`-equivalent projection inputs,
+- security type classification compatible with Bills, Notes, and Bonds,
+- near-term auction context and issue-date projection behavior.
+
+The preferred migration pattern is to add a second source adapter, not to replace the first one immediately:
+
+```text
+TreasuryDirect TA_WS adapter -> normalized security rows -> derived issued/maturing report
+Fiscal Service adapter      -> normalized security rows -> derived issued/maturing report
+```
+
+Once both adapters can produce the same normalized model, add parity checks over matched date windows. The comparison should verify row-level totals, projected values, auction markers, and security-type splits. A temporary V2 or beta page can then render the Fiscal Service-backed artifact next to the TreasuryDirect-backed version for visual inspection.
+
+Only retire the TreasuryDirect adapter after the newer source has proven parity for the report and has stable enough documentation to be a better operational dependency.
+
 ## Endpoint Shape
 
 Base endpoint:
