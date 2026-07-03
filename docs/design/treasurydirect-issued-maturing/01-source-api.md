@@ -116,6 +116,17 @@ GET /buybacks/special
 GET /buybacks/special/expired
 ```
 
+The rendered Requesting Access page says access requests are submitted through Fiscal Service's API Community Manager. The documented flow is:
+
+1. Log in through the API Community page. Users without PIV or PIV-I credentials can use Login.gov or ID.me for identity confirmation.
+2. Select `Request Access` on the Treasury Marketable Securities API page.
+3. Choose an instance: `Production` or `Testing Instance (Does not contain production data)`.
+4. Choose an SLA tier: `Silver`, `Gold`, or `Platinum`.
+5. Create a new client application and provide the application name, company or organization, reason for access, and OAuth 2.0 redirect URL.
+6. Submit the request. After approval, a contract is created between the client application and the instance, and the client application is registered.
+
+The rendered page says instances are protected by a client ID enforcement policy and require client applications to provide a client ID and client secret. Those credentials are automatically created when the client application is registered. It also lists `taaps.support@fiscal.treasury.gov` for assistance.
+
 The page also references `Security clientId - x-client-enforcement`. A direct unauthenticated probe of production endpoints returned HTTP 401 with:
 
 ```json
@@ -123,6 +134,7 @@ The page also references `Security clientId - x-client-enforcement`. A direct un
 ```
 
 This means the newer Fiscal Service API is not a drop-in public replacement for the legacy unauthenticated TreasuryDirect `TA_WS` endpoint. It may become the preferred long-term source, but using it requires API access credentials and parity validation.
+
 ## Endpoint Shape
 
 Base endpoint:
