@@ -10,6 +10,7 @@ from typing import Any, Literal, Protocol
 import pandas as pd
 
 DatasetKind = Literal["source", "derived"]
+UpdateStrategy = Literal["incremental", "replace"]
 
 
 class SourceAdapter(Protocol):
@@ -44,6 +45,7 @@ class DatasetSpec:
     source_units: str | None = None
     display_units: str | None = None
     kind: DatasetKind = "source"
+    update_strategy: UpdateStrategy = "incremental"
 
 
 @dataclass(frozen=True)

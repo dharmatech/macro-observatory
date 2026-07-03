@@ -15,6 +15,11 @@ from macro_observatory.sources.treasury import (
     deposits_withdrawals_operating_cash_adapter,
     operating_cash_balance_adapter,
 )
+from macro_observatory.sources.treasurydirect import (
+    TREASURYDIRECT_AMOUNT_COLUMNS,
+    TREASURYDIRECT_SECURITIES_CURRENT_REQUIRED_COLUMNS,
+    treasurydirect_securities_current_adapter,
+)
 
 DEFAULT_DATA_DIR = Path("data")
 FRED_MILLIONS_USD = "millions of U.S. dollars"
@@ -165,6 +170,32 @@ def _treasury_auctions_query_spec(source_dir: Path, metadata_dir: Path) -> Datas
     )
 
 
+def _treasurydirect_securities_current_spec(source_dir: Path, metadata_dir: Path) -> DatasetSpec:
+    return DatasetSpec(
+        id="treasurydirect_securities_current",
+        title="TreasuryDirect Securities Current Window",
+        source_name="TreasuryDirect TA_WS",
+        adapter=treasurydirect_securities_current_adapter(),
+        date_column="query_date",
+        primary_key=(
+            "query_mode",
+            "query_date",
+            "cusip",
+            "auctionDate",
+            "issueDate",
+            "maturityDate",
+        ),
+        overlap_days=0,
+        cache_path=source_dir / "treasurydirect_securities_current.parquet",
+        metadata_path=metadata_dir / "treasurydirect_securities_current.json",
+        required_columns=TREASURYDIRECT_SECURITIES_CURRENT_REQUIRED_COLUMNS,
+        numeric_columns=TREASURYDIRECT_AMOUNT_COLUMNS,
+        source_units=US_DOLLARS,
+        display_units=US_DOLLARS,
+        update_strategy="replace",
+    )
+
+
 def _treasury_tga_spec(derived_dir: Path, metadata_dir: Path) -> DatasetSpec:
     return DatasetSpec(
         id="treasury_tga",
@@ -312,6 +343,7 @@ def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
         _treasury_operating_cash_balance_spec(source_dir, metadata_dir),
         _treasury_deposits_withdrawals_operating_cash_spec(source_dir, metadata_dir),
         _treasury_auctions_query_spec(source_dir, metadata_dir),
+        _treasurydirect_securities_current_spec(source_dir, metadata_dir),
         _treasury_tga_spec(derived_dir, metadata_dir),
         _treasury_deposits_withdrawals_explorer_spec(derived_dir, metadata_dir),
         _treasury_securities_net_issuance_spec(derived_dir, metadata_dir),

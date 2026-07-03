@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from macro_observatory.cache import load_metadata, update_dataset
+from macro_observatory.cache import load_metadata, replace_dataset, update_dataset
 from macro_observatory.data import load_dataset
 from macro_observatory.derived import DerivedDatasetError, build_derived_dataset
 from macro_observatory.diagnostics import build_storage_report, render_storage_report
@@ -22,10 +22,22 @@ from macro_observatory.publish import (
 from macro_observatory.registry import DEFAULT_DATA_DIR, build_registry, get_dataset_spec
 from macro_observatory.server import DEFAULT_HOST, DEFAULT_PORT, SiteDirectoryError, serve_site
 from macro_observatory.site_build import BuildSiteError, BuildSiteResult, build_static_site
+from macro_observatory.sources.treasurydirect import (
+    DEFAULT_TREASURYDIRECT_LOOKAHEAD_DAYS,
+    DEFAULT_TREASURYDIRECT_LOOKBACK_DAYS,
+    treasurydirect_securities_current_adapter,
+)
 
 
 def _data_dir(value: str | None) -> Path:
     return Path(value) if value else DEFAULT_DATA_DIR
+
+
+def _non_negative_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("value must be non-negative")
+    return parsed
 
 
 def _print_dataframe(df: pd.DataFrame, rows: int) -> None:
@@ -81,6 +93,26 @@ def _update(args: argparse.Namespace) -> int:
         return 1
     result = update_dataset(spec)
     _print_result("updated", result)
+    return 0
+
+
+def _refresh_current(args: argparse.Namespace) -> int:
+    if args.dataset_id != "treasurydirect_securities_current":
+        print(
+            "Unknown current-window dataset "
+            f"'{args.dataset_id}'. Known current-window datasets: "
+            "treasurydirect_securities_current."
+        )
+        return 1
+
+    spec = get_dataset_spec(args.dataset_id, _data_dir(args.data_dir))
+    adapter = treasurydirect_securities_current_adapter(
+        lookback_days=args.lookback_days,
+        lookahead_days=args.lookahead_days,
+    )
+    fetched = adapter.fetch_current_window()
+    result = replace_dataset(spec, fetched, source_metadata=adapter.source_metadata())
+    _print_result("refreshed", result)
     return 0
 
 
@@ -203,6 +235,24 @@ def build_parser() -> argparse.ArgumentParser:
     update_parser = subparsers.add_parser("update", help="Update one source dataset")
     update_parser.add_argument("dataset_id")
     update_parser.set_defaults(func=_update)
+    refresh_current_parser = subparsers.add_parser(
+        "refresh-current",
+        help="Replace one current-window source dataset",
+    )
+    refresh_current_parser.add_argument("dataset_id")
+    refresh_current_parser.add_argument(
+        "--lookback-days",
+        type=_non_negative_int,
+        default=DEFAULT_TREASURYDIRECT_LOOKBACK_DAYS,
+        help="Days before today to include in the TreasuryDirect window",
+    )
+    refresh_current_parser.add_argument(
+        "--lookahead-days",
+        type=_non_negative_int,
+        default=DEFAULT_TREASURYDIRECT_LOOKAHEAD_DAYS,
+        help="Days after today to include in the TreasuryDirect window",
+    )
+    refresh_current_parser.set_defaults(func=_refresh_current)
 
     build_derived_parser = subparsers.add_parser("build-derived", help="Build one derived dataset")
     build_derived_parser.add_argument("dataset_id")

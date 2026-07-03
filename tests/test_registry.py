@@ -7,6 +7,7 @@ from macro_observatory.registry import build_registry, get_dataset_spec
 from macro_observatory.sources.fred import FredSeriesAdapter
 from macro_observatory.sources.nyfed import NyFedReverseRepoAdapter
 from macro_observatory.sources.treasury import TreasuryFiscalDataAdapter
+from macro_observatory.sources.treasurydirect import TreasuryDirectSecuritiesCurrentWindowAdapter
 
 
 def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -> None:
@@ -24,6 +25,7 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
         "treasury_od_auctions_query",
         "treasury_securities_net_issuance",
         "treasury_tga",
+        "treasurydirect_securities_current",
     ]
 
     resp = registry["fred_resppllopnww"]
@@ -125,6 +127,29 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
     )
     assert auctions.source_units == "U.S. dollars"
     assert auctions.display_units == "U.S. dollars"
+    treasurydirect = registry["treasurydirect_securities_current"]
+    assert treasurydirect.title == "TreasuryDirect Securities Current Window"
+    assert treasurydirect.source_name == "TreasuryDirect TA_WS"
+    assert treasurydirect.kind == "source"
+    assert isinstance(treasurydirect.adapter, TreasuryDirectSecuritiesCurrentWindowAdapter)
+    assert treasurydirect.date_column == "query_date"
+    assert treasurydirect.primary_key == (
+        "query_mode",
+        "query_date",
+        "cusip",
+        "auctionDate",
+        "issueDate",
+        "maturityDate",
+    )
+    assert treasurydirect.cache_path == (
+        tmp_path / "cache" / "sources" / "treasurydirect_securities_current.parquet"
+    )
+    assert treasurydirect.metadata_path == (
+        tmp_path / "cache" / "metadata" / "treasurydirect_securities_current.json"
+    )
+    assert treasurydirect.source_units == "U.S. dollars"
+    assert treasurydirect.display_units == "U.S. dollars"
+    assert treasurydirect.update_strategy == "replace"
 
     tga = registry["treasury_tga"]
     assert tga.title == "Treasury General Account (TGA)"
@@ -206,6 +231,7 @@ def test_get_dataset_spec_error_lists_known_ids(tmp_path: Path) -> None:
     assert "treasury_dts_operating_cash_balance" in message
     assert "treasury_od_auctions_query" in message
     assert "treasury_securities_net_issuance" in message
+    assert "treasurydirect_securities_current" in message
     assert "treasury_tga" in message
 
 

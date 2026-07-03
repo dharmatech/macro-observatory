@@ -176,18 +176,38 @@ def replace_dataset(
 
 
 def update_dataset(spec: DatasetSpec) -> UpdateResult:
-    """Run the shared incremental update lifecycle for ``spec``."""
+    """Run the shared update lifecycle for ``spec``."""
     adapter = spec.adapter
     if adapter is None:
-        raise ValueError(f"Dataset '{spec.id}' is derived. Use build-derived instead of update.")
+        if spec.kind == "derived":
+            raise ValueError(
+                f"Dataset '{spec.id}' is derived. Use build-derived instead of update."
+            )
+        raise ValueError(f"Dataset '{spec.id}' does not have a source adapter.")
 
     existing = load_cache(spec)
-    start_date = _update_start_date(spec, existing)
+    start_date = None if spec.update_strategy == "replace" else _update_start_date(spec, existing)
     fetched = adapter.fetch(start_date)
     fetched = _normalize_for_cache(spec, fetched)
+    updated_at = datetime.now(UTC)
+
+    if spec.update_strategy == "replace":
+        _write_cache(spec, fetched)
+        metadata = _write_metadata(spec, fetched, updated_at, _adapter_source_metadata(adapter))
+        return UpdateResult(
+            dataset_id=spec.id,
+            rows_before=len(existing),
+            rows_fetched=len(fetched),
+            rows_after=len(fetched),
+            min_date=metadata.min_date,
+            max_date=metadata.max_date,
+            updated_at=updated_at,
+            cache_path=spec.cache_path,
+            metadata_path=spec.metadata_path,
+        )
+
     merged = _merge_rows(spec, existing, fetched)
     _write_cache(spec, merged)
-    updated_at = datetime.now(UTC)
     metadata = _write_metadata(spec, merged, updated_at, _adapter_source_metadata(adapter))
     return UpdateResult(
         dataset_id=spec.id,
