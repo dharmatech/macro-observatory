@@ -336,6 +336,12 @@ def test_static_site_links_treasurydirect_issued_maturing_page() -> None:
     assert "../../data/treasurydirect-issued-maturing-metadata.json" in script_js
 
 def test_treasurydirect_issued_maturing_table_has_row_tracking_styles() -> None:
+    page_html = Path("site/pages/treasurydirect-issued-maturing/index.html").read_text(
+        encoding="utf-8"
+    )
+    script = Path("site/assets/js/treasurydirect-issued-maturing.js").read_text(
+        encoding="utf-8"
+    )
     stylesheet = Path("site/assets/css/site.css").read_text(encoding="utf-8")
 
     assert ".issued-maturing-table tbody tr:nth-child(even)" in stylesheet
@@ -343,3 +349,12 @@ def test_treasurydirect_issued_maturing_table_has_row_tracking_styles() -> None:
     assert "--issued-maturing-row-bg" in stylesheet
     assert ".issued-maturing-table tbody .sticky-column" in stylesheet
     assert "background: var(--issued-maturing-row-bg);" in stylesheet
+    assert "group-header group-start" in page_html
+    assert "GROUP_START_COLUMNS" in script
+    assert "issued_bills" in script
+    assert "issued_notes" in script
+    assert "issued_bonds" in script
+    assert '"issued"' in script
+    assert '"auction"' in script
+    assert ".issued-maturing-table .group-start" in stylesheet
+    assert "border-left: 2px solid var(--border-strong);" in stylesheet

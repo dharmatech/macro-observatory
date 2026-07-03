@@ -1018,6 +1018,10 @@ body.chart-expanded-active {
   text-align: center;
 }
 
+.issued-maturing-table .group-start {
+  border-left: 2px solid var(--border-strong);
+}
+
 .issued-maturing-table .sticky-column {
   position: sticky;
   left: 0;

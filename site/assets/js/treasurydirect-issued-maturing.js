@@ -42,6 +42,13 @@
     "projected_change"
   ]);
   const AMOUNT_COLUMNS = new Set(COLUMNS.filter((column) => !["date", "auction", "auction_issuing"].includes(column)));
+  const GROUP_START_COLUMNS = new Set([
+    "issued_bills",
+    "issued_notes",
+    "issued_bonds",
+    "issued",
+    "auction"
+  ]);
 
   let metadata = null;
   let rows = [];
@@ -112,11 +119,13 @@
     return window.MacroObservatory.valueToneClass(value);
   }
 
-  function appendAmountCell(row, sourceRow, columnName) {
+  function appendAmountCell(row, sourceRow, columnName, className) {
     const value = numericRowValue(sourceRow, columnName);
     const signed = SIGNED_COLUMNS.has(columnName);
     const cell = document.createElement("td");
-    cell.className = `number-cell ${valueToneClass(value, signed)}`;
+    cell.className = ["number-cell", valueToneClass(value, signed), className]
+      .filter(Boolean)
+      .join(" ");
     cell.textContent = formatBillions(value, signed);
     row.appendChild(cell);
   }
@@ -230,11 +239,18 @@
       const row = document.createElement("tr");
       appendTextCell(row, String(rowValue(sourceRow, "date") || ""), "sticky-column date-cell");
       COLUMNS.slice(1).forEach((columnName) => {
+        const groupClass = GROUP_START_COLUMNS.has(columnName) ? "group-start" : "";
         if (AMOUNT_COLUMNS.has(columnName)) {
-          appendAmountCell(row, sourceRow, columnName);
+          appendAmountCell(row, sourceRow, columnName, groupClass);
           return;
         }
-        appendTextCell(row, String(rowValue(sourceRow, columnName) || ""), columnName === "auction" ? "auction-marker-cell" : undefined);
+        appendTextCell(
+          row,
+          String(rowValue(sourceRow, columnName) || ""),
+          [columnName === "auction" ? "auction-marker-cell" : "", groupClass]
+            .filter(Boolean)
+            .join(" ")
+        );
       });
       body.appendChild(row);
     });
