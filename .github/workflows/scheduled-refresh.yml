@@ -8,6 +8,8 @@ on:
     - cron: "25 21 * * 1-5"
     # Treasury auctions daily: 22:10 UTC = 3:10 PM PDT / 2:10 PM PST = 6:10 PM EDT / 5:10 PM EST.
     - cron: "10 22 * * 1-5"
+    # TreasuryDirect current window intraday: 16:07,17:07,18:07,19:07 UTC = 9:07 AM, 10:07 AM, 11:07 AM, 12:07 PM PDT / 8:07 AM, 9:07 AM, 10:07 AM, 11:07 AM PST.
+    - cron: "7 16,17,18,19 * * 1-5"
     # FRED market daily: 22:25 UTC = 3:25 PM PDT / 2:25 PM PST = 6:25 PM EDT / 5:25 PM EST.
     - cron: "25 22 * * 1-5"
     # FRED weekly: 21:55 UTC Thursday = 2:55 PM PDT / 1:55 PM PST = 5:55 PM EDT / 4:55 PM EST.
@@ -23,6 +25,7 @@ on:
           - rrp_daily
           - treasury_daily
           - treasury_auctions_daily
+          - treasurydirect_current_intraday
           - fred_market_daily
           - fred_weekly
 
@@ -81,6 +84,12 @@ jobs:
                   build_args="--source-dataset treasury_od_auctions_query"
                   requires_fred_api_key="false"
                   ;;
+                "7 16,17,18,19 * * 1-5")
+                  refresh_group="treasurydirect_current_intraday"
+                  source_datasets="treasurydirect_securities_current"
+                  build_args="--source-dataset treasurydirect_securities_current"
+                  requires_fred_api_key="false"
+                  ;;
                 "25 22 * * 1-5")
                   refresh_group="fred_market_daily"
                   source_datasets="fred_sp500"
@@ -117,6 +126,12 @@ jobs:
                   refresh_group="treasury_auctions_daily"
                   source_datasets="treasury_od_auctions_query"
                   build_args="--source-dataset treasury_od_auctions_query"
+                  requires_fred_api_key="false"
+                  ;;
+                treasurydirect_current_intraday)
+                  refresh_group="treasurydirect_current_intraday"
+                  source_datasets="treasurydirect_securities_current"
+                  build_args="--source-dataset treasurydirect_securities_current"
                   requires_fred_api_key="false"
                   ;;
                 fred_market_daily)

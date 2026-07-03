@@ -913,6 +913,10 @@ treasury_daily            -> treasury_dts_operating_cash_balance
 treasury_auctions_daily   -> treasury_od_auctions_query
                              10 22 * * 1-5  # 22:10 UTC, 3:10 PM PDT / 2:10 PM PST
 
+treasurydirect_current_intraday
+                          -> treasurydirect_securities_current
+                             7 16,17,18,19 * * 1-5  # 16:07/17:07/18:07/19:07 UTC, 9:07/10:07/11:07 AM and 12:07 PM PDT
+
 fred_market_daily         -> fred_sp500
                              25 22 * * 1-5  # 22:25 UTC, 3:25 PM PDT / 2:25 PM PST
 
@@ -927,6 +931,7 @@ Manual dispatch from GitHub CLI after the workflow exists on `main`:
 gh workflow run scheduled-refresh.yml --ref main -f refresh_group=rrp_daily
 gh workflow run scheduled-refresh.yml --ref main -f refresh_group=treasury_daily
 gh workflow run scheduled-refresh.yml --ref main -f refresh_group=treasury_auctions_daily
+gh workflow run scheduled-refresh.yml --ref main -f refresh_group=treasurydirect_current_intraday
 gh workflow run scheduled-refresh.yml --ref main -f refresh_group=fred_market_daily
 gh workflow run scheduled-refresh.yml --ref main -f refresh_group=fred_weekly
 ```
@@ -944,6 +949,7 @@ Equivalent local commands for the current refresh groups:
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
+uv run macro-observatory build-site --source-dataset treasurydirect_securities_current
 uv run macro-observatory build-site --source-dataset fred_sp500 --require-fred-api-key
 uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```

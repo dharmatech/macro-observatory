@@ -51,7 +51,9 @@ Current implementation priorities:
 - Static site shell and Fed Net Liquidity Plotly page under `site/`.
 - Treasury Fiscal Data Deposits and Withdrawals source dataset: `treasury_dts_deposits_withdrawals_operating_cash`.
 - Treasury Fiscal Data Auctions Query source dataset: `treasury_od_auctions_query`.
+- TreasuryDirect current-window source dataset: `treasurydirect_securities_current`.
 - Derived Treasury Securities Net Issuance dataset: `treasury_securities_net_issuance`.
+- Derived TreasuryDirect Issued/Maturing Current Report dataset: `treasurydirect_issued_maturing_current`.
 - Derived TGA Explorer dataset: `treasury_dts_deposits_withdrawals_operating_cash_explorer`.
 - TGA Explorer published browser artifacts under `site/data/`.
 - TGA Explorer static page UI under `site/pages/tga-explorer/`.
@@ -61,12 +63,15 @@ Current implementation priorities:
 - Treasury Securities SP500 overlay UI with a FRED-backed right-axis daily line.
 - Treasury Securities SP500 overlay contrast halo for readability over bars.
 - SP500 market-context published browser artifacts under `site/data/`.
+- TreasuryDirect Issued/Maturing Current Report published browser artifacts under `site/data/`.
+- TreasuryDirect Issued/Maturing Current Report static page UI under `site/pages/treasurydirect-issued-maturing/`.
 - Aggregate static-site build command via `build-site`, including targeted source-update mode.
 - GitHub Pages deployment workflow at `.github/workflows/pages.yml`.
 - GitHub Actions data-cache persistence for `data/cache/` with explicit cold-build guardrail.
 - Push-triggered cache-only GitHub Pages deployment via `build-site --from-cache`.
 - Targeted source-update support via repeated `build-site --source-dataset ...` flags.
 - Scheduled data refresh workflow at `.github/workflows/scheduled-refresh.yml`.
+- Scheduled TreasuryDirect current-window intraday refresh group: `treasurydirect_current_intraday`.
 
 The TGA Explorer page UI checkpoint, Treasury Securities Net Issuance page UI checkpoint, initial GitHub Pages deployment checkpoint, Actions cache persistence checkpoint, push-triggered cache-only deployment checkpoint, targeted source-update checkpoint, scheduled refresh workflow implementation checkpoint, and Treasury auctions plus daily SP500 scheduled refresh group checkpoint are complete. Live schedule validation remains open.
 
@@ -80,7 +85,8 @@ Current package files:
 - `src/macro_observatory/sources/fred.py`: FRED source adapter.
 - `src/macro_observatory/sources/nyfed.py`: New York Fed reverse repo source adapter.
 - `src/macro_observatory/sources/treasury.py`: Treasury Fiscal Data source adapters.
-- `src/macro_observatory/derived.py`: derived builders for `treasury_tga`, `fed_net_liquidity`, TGA Explorer, and Treasury Securities Net Issuance.
+- `src/macro_observatory/sources/treasurydirect.py`: TreasuryDirect current-window source adapter.
+- `src/macro_observatory/derived.py`: derived builders for `treasury_tga`, `fed_net_liquidity`, TGA Explorer, Treasury Securities Net Issuance, and TreasuryDirect Issued/Maturing Current Report.
 - `src/macro_observatory/publish.py`: static artifact publisher for browser-facing data files.
 - `src/macro_observatory/diagnostics.py`: cross-platform storage report for known cache, metadata, and site data files.
 - `src/macro_observatory/registry.py`: dataset registry for source and derived datasets.
@@ -95,11 +101,13 @@ Current static-site files:
 - `site/pages/fed-net-liquidity/index.html`
 - `site/pages/tga-explorer/index.html`
 - `site/pages/treasury-securities-net-issuance/index.html`
+- `site/pages/treasurydirect-issued-maturing/index.html`
 - `site/assets/css/site.css`
 - `site/assets/js/site.js`
 - `site/assets/js/fed-net-liquidity.js`
 - `site/assets/js/tga-explorer.js`
 - `site/assets/js/treasury-securities-net-issuance.js`
+- `site/assets/js/treasurydirect-issued-maturing.js`
 
 Generated data under `data/cache/` and `site/data/` is ignored by git. Manual GitHub Pages deployment restores `data/cache/` from GitHub Actions cache, refreshes source data from APIs, regenerates derived and browser artifacts, saves a new data-cache snapshot after a successful build, and uploads `site/` as the Pages artifact. Push-triggered deployment restores the same cache, runs `build-site --from-cache`, uploads `site/`, and does not call source APIs or save a new data-cache snapshot. Scheduled refresh deployment restores the same cache, refuses cache misses, runs targeted source updates by refresh group, saves a new cache snapshot after success, and deploys `site/`.
 
@@ -160,6 +168,7 @@ uv run macro-observatory update nyfed_rrp
 uv run macro-observatory update treasury_dts_operating_cash_balance
 uv run macro-observatory update treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory update treasury_od_auctions_query
+uv run macro-observatory refresh-current treasurydirect_securities_current
 ```
 
 Build derived datasets:
@@ -169,6 +178,7 @@ uv run macro-observatory build-derived treasury_tga
 uv run macro-observatory build-derived fed_net_liquidity
 uv run macro-observatory build-derived treasury_dts_deposits_withdrawals_operating_cash_explorer
 uv run macro-observatory build-derived treasury_securities_net_issuance
+uv run macro-observatory build-derived treasurydirect_issued_maturing_current
 ```
 
 Publish browser-facing artifacts:
@@ -178,6 +188,7 @@ uv run macro-observatory publish fed_net_liquidity
 uv run macro-observatory publish treasury_dts_deposits_withdrawals_operating_cash_explorer
 uv run macro-observatory publish treasury_securities_net_issuance
 uv run macro-observatory publish fred_sp500
+uv run macro-observatory publish treasurydirect_issued_maturing_current
 ```
 
 Inspect data and storage:
@@ -203,6 +214,7 @@ uv run macro-observatory build-site --from-cache
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
+uv run macro-observatory build-site --source-dataset treasurydirect_securities_current
 uv run macro-observatory build-site --source-dataset fred_sp500 --require-fred-api-key
 uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```
@@ -603,7 +615,7 @@ Do not commit real API keys, personal contact information, or generated local ca
 
 ## Next Likely Checkpoint
 
-The next likely checkpoint is watching the first live weekday scheduled runs for the new `treasury_auctions_daily` and `fred_market_daily` groups, along with the already-existing groups. Manual dispatch validation for the new groups is complete.
+The next likely checkpoint is watching the first live weekday scheduled runs for the new `treasurydirect_current_intraday` group, plus the existing scheduled groups. Manual dispatch validation for Treasury auctions and SP500 completed earlier; TreasuryDirect manual dispatch and live schedule validation remain open.
 
 Manual cache validation completed on June 28, 2026. Bootstrap run `28315964925` cold-built once and saved the first cache in 132 seconds. Normal run `28316049169` restored that cache and completed `build-site` in 9 seconds.
 
@@ -621,7 +633,7 @@ SP500 Actions cache refresh completed on June 28, 2026. The first push run for c
 
 Treasury auctions and daily SP500 scheduled refresh validation completed on June 28, 2026. Run `28338729539` dispatched `treasury_auctions_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28333510067`, selected `treasury_od_auctions_query`, updated `1` source dataset, completed `build-site` in 8 seconds, saved cache key `macro-observatory-data-cache-v1-Linux-28338729539`, and deployed successfully. Run `28338763380` dispatched `fred_market_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28338729539`, validated `FRED_API_KEY`, selected `fred_sp500`, updated `1` source dataset, completed `build-site` in 8 seconds, saved cache key `macro-observatory-data-cache-v1-Linux-28338763380`, and deployed successfully. Public smoke checks returned HTTP 200 for the root page, Treasury Securities page, SP500 artifact, and Treasury Securities artifact.
 
-Scheduled refresh workflow implementation is now present. Manual `rrp_daily`, `treasury_auctions_daily`, and `fred_market_daily` dispatch validation completed successfully. Live weekday schedule validation is the next check.
+Scheduled refresh workflow implementation is now present. Manual `rrp_daily`, `treasury_auctions_daily`, and `fred_market_daily` dispatch validation completed successfully. The `treasurydirect_current_intraday` group is implemented for `treasurydirect_securities_current`; manual dispatch and live weekday schedule validation are the next checks.
 
 
 ## Known Open Questions

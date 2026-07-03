@@ -46,11 +46,17 @@ FRED WALCL and RESPPLLOPNWW:
 
 Treasury auctions query:
 0 14 * * MON-FRI       # 02:00 PM Pacific
+
+TreasuryDirect issued/maturing current report:
+0 9 * * MON-FRI        # 09:00 AM Pacific
+0 10 * * MON-FRI       # 10:00 AM Pacific
+0 11 * * MON-FRI       # 11:00 AM Pacific
+0 12 * * MON-FRI       # 12:00 PM Pacific
 ```
 
 The TGA Explorer source script, `deposits_withdrawals_operating_cash.sh`, has no cron comment, but it is Treasury Daily Treasury Statement data and should be refreshed with the other Treasury Daily Treasury Statement source.
 
-The first three groups were the initial implementation. Treasury auctions and daily SP500 refresh are now in scope because the Treasury Securities Net Issuance page and its SP500 overlay are user-facing.
+The first three groups were the initial implementation. Treasury auctions, daily SP500 refresh, and the TreasuryDirect current-window report are now in scope because their pages are user-facing.
 
 ## Initial Refresh Groups
 
@@ -62,6 +68,7 @@ The scheduled workflow should support these refresh groups.
 | `treasury_daily` | `treasury_dts_operating_cash_balance`, `treasury_dts_deposits_withdrawals_operating_cash` | `25 21 * * 1-5` | 2:25 PM PDT / 1:25 PM PST | 5:25 PM EDT / 4:25 PM EST | Fed Net Liquidity and TGA Explorer |
 | `treasury_auctions_daily` | `treasury_od_auctions_query` | `10 22 * * 1-5` | 3:10 PM PDT / 2:10 PM PST | 6:10 PM EDT / 5:10 PM EST | Treasury Securities Net Issuance |
 | `fred_market_daily` | `fred_sp500` | `25 22 * * 1-5` | 3:25 PM PDT / 2:25 PM PST | 6:25 PM EDT / 5:25 PM EST | Treasury Securities SP500 overlay |
+| `treasurydirect_current_intraday` | `treasurydirect_securities_current` | `7 16,17,18,19 * * 1-5` | 9:07 AM, 10:07 AM, 11:07 AM, 12:07 PM PDT / 8:07 AM, 9:07 AM, 10:07 AM, 11:07 AM PST | 12:07 PM, 1:07 PM, 2:07 PM, 3:07 PM EDT / 11:07 AM, 12:07 PM, 1:07 PM, 2:07 PM EST | TreasuryDirect Issued/Maturing Current Report |
 | `fred_weekly` | `fred_walcl`, `fred_resppllopnww` | `55 21 * * 4` | 2:55 PM PDT / 1:55 PM PST | 5:55 PM EDT / 4:55 PM EST | Fed Net Liquidity |
 
 These UTC times are intentionally conservative. They are later than the legacy local-time comments during daylight saving time, but they avoid being too early during standard time.
@@ -78,7 +85,7 @@ Scheduled refresh is implemented as a separate workflow:
 
 The workflow has:
 
-- the five schedule entries above,
+- the six schedule entries above,
 - comments next to each cron entry showing UTC, Pacific, and Eastern time,
 - a `workflow_dispatch` input for manually running one refresh group,
 - the same Pages deployment permissions as the existing Pages workflow,
@@ -96,6 +103,8 @@ on:
     - cron: "25 21 * * 1-5"
     # Treasury auctions daily: 22:10 UTC = 3:10 PM PDT / 2:10 PM PST = 6:10 PM EDT / 5:10 PM EST.
     - cron: "10 22 * * 1-5"
+    # TreasuryDirect current window intraday: 16:07,17:07,18:07,19:07 UTC = 9:07 AM, 10:07 AM, 11:07 AM, 12:07 PM PDT / 8:07 AM, 9:07 AM, 10:07 AM, 11:07 AM PST.
+    - cron: "7 16,17,18,19 * * 1-5"
     # FRED market daily: 22:25 UTC = 3:25 PM PDT / 2:25 PM PST = 6:25 PM EDT / 5:25 PM EST.
     - cron: "25 22 * * 1-5"
     # FRED weekly: 21:55 UTC Thursday = 2:55 PM PDT / 1:55 PM PST = 5:55 PM EDT / 4:55 PM EST.
@@ -108,6 +117,7 @@ on:
           - rrp_daily
           - treasury_daily
           - treasury_auctions_daily
+          - treasurydirect_current_intraday
           - fred_market_daily
           - fred_weekly
 ```
@@ -124,6 +134,7 @@ Command shape:
 uv run macro-observatory build-site --source-dataset nyfed_rrp
 uv run macro-observatory build-site --source-dataset treasury_dts_operating_cash_balance --source-dataset treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory build-site --source-dataset treasury_od_auctions_query
+uv run macro-observatory build-site --source-dataset treasurydirect_securities_current
 uv run macro-observatory build-site --source-dataset fred_sp500 --require-fred-api-key
 uv run macro-observatory build-site --source-dataset fred_walcl --source-dataset fred_resppllopnww --require-fred-api-key
 ```
@@ -191,7 +202,7 @@ A failed scheduled run should fail loudly before source APIs are called if the c
 
 The targeted `build-site --source-dataset ...` checkpoint is implemented and locally validated with the `nyfed_rrp` source dataset.
 
-The scheduled workflow implementation checkpoint first added `scheduled-refresh.yml` with the three initial refresh groups and cache-miss guardrails. The Treasury Securities checkpoint adds `treasury_auctions_daily` for `treasury_od_auctions_query`, adds `fred_market_daily` for `fred_sp500`, and removes `fred_sp500` from `fred_weekly` so Thursday does not update the same source twice.
+The scheduled workflow implementation checkpoint first added `scheduled-refresh.yml` with the three initial refresh groups and cache-miss guardrails. The Treasury Securities checkpoint adds `treasury_auctions_daily` for `treasury_od_auctions_query`, adds `fred_market_daily` for `fred_sp500`, and removes `fred_sp500` from `fred_weekly` so Thursday does not update the same source twice. The TreasuryDirect issued/maturing checkpoint adds `treasurydirect_current_intraday` for the replace-on-refresh `treasurydirect_securities_current` source.
 
 Manual dispatch validation completed on June 28, 2026 for the first scheduled group. Run `28318271888` dispatched `rrp_daily`, restored cache key `macro-observatory-data-cache-v1-Linux-28316049169`, selected `nyfed_rrp`, ran `build-site` in targeted mode, updated `1` source dataset, completed `build-site` in 9 seconds, saved new cache key `macro-observatory-data-cache-v1-Linux-28318271888`, deployed successfully, and returned HTTP 200 for the public root page, both current dashboard pages, and sampled data artifacts.
 
