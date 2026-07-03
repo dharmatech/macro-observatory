@@ -213,6 +213,32 @@ That means the default window is roughly seven days of recent history plus about
 
 The first Python port should preserve this default unless we intentionally change it after parity testing.
 
+## Rolling Window And Snapshot Model
+
+This source should not use the normal Macro Observatory historical backfill plus incremental update model.
+
+TreasuryDirect `TA_WS` can expose records that are provisional from the report's point of view: announced securities, upcoming auctions, auctioned-but-not-settled rows, future issue dates, and projected values. Those rows can change as TreasuryDirect updates auction and issuance state.
+
+For the first implementation, every refresh should fetch the configured rolling window fresh and replace the current source and derived artifacts. Do not append or merge rows into a long-lived canonical history for this report.
+
+The current report should be modeled as:
+
+```text
+fresh TA_WS rolling-window fetch -> current source rows -> current issued/maturing report -> current site artifact
+```
+
+A historical archive can be added later, but it should be explicit snapshot history, not source-of-truth history. If implemented, snapshots should be immutable and keyed by retrieval time:
+
+```text
+snapshots/YYYY-MM-DDTHHMMSSZ/source.parquet
+snapshots/YYYY-MM-DDTHHMMSSZ/report.parquet
+snapshots/YYYY-MM-DDTHHMMSSZ/metadata.json
+```
+
+The UI could later default to the latest report while offering previous report snapshots in a dropdown. That archive would answer, "What did the report show when we generated it?" It would not answer, "What is the final historical truth for every security?"
+
+The existing Fiscal Data-backed Treasury Securities Net Issuance page remains the historical/backfill source for long-range issuance and maturity analysis.
+
 ## Fields Needed For The First Report
 
 The legacy report can be reproduced from these fields:
@@ -238,18 +264,20 @@ Core semantics:
 - Projected change uses `offeringAmount + somaTendered - maturing` for rows grouped by `issueDate`.
 - Security type splits are based on `securityType`, initially `Bill`, `Note`, and `Bond`.
 
-The live response contains many more columns. A representative check on `auctionDate=2026-07-01,2026-07-03` returned 120 fields. The adapter should preserve the raw rows in the source cache so future reports can use additional fields without rethinking the ingestion boundary.
+The live response contains many more columns. A representative check on `auctionDate=2026-07-01,2026-07-03` returned 120 fields. The adapter should preserve the raw rows in the current source cache so future reports can use additional fields without rethinking the ingestion boundary.
 
 ## Source Cache Recommendation
 
 Use TreasuryDirect as its own source adapter namespace. Do not merge this cache with the existing Fiscal Data auctions cache.
 
-Recommended first cache shape:
+Recommended first current-cache shape:
 
 ```text
-data/cache/sources/treasurydirect_securities.parquet
-data/cache/metadata/treasurydirect_securities.json
+data/cache/sources/treasurydirect_securities_current.parquet
+data/cache/metadata/treasurydirect_securities_current.json
 ```
+
+This cache is a replace-on-refresh artifact for the current rolling window. It should be overwritten each time the adapter runs successfully.
 
 The cache should store raw or minimally normalized security rows, with explicit query provenance fields added by our adapter:
 
@@ -257,16 +285,21 @@ The cache should store raw or minimally normalized security rows, with explicit 
 - `query_start_date`
 - `query_end_date`
 - `retrieved_at`
+- `is_current_window`: true
 
-Because the same security can appear in multiple query modes, the first implementation should preserve query provenance rather than deduplicating too early. A later derived step can create a canonical security view keyed by CUSIP plus issue/auction/maturity dates if that becomes useful.
+Because the same security can appear in multiple query modes, the first implementation should preserve query provenance rather than deduplicating too early. A later derived step can create a report-local canonical security view keyed by CUSIP plus issue/auction/maturity dates if that becomes useful.
+
+Do not use this cache as an append-only historical store. If historical retention is needed later, add an explicit snapshot archive keyed by `retrieved_at` and label it as report history.
 
 ## Derived Dataset Recommendation
 
-The first derived dataset should be row-oriented and report-ready:
+The first derived dataset should be row-oriented, report-ready, and current-window scoped:
 
 ```text
-data/cache/derived/treasurydirect_issued_maturing.parquet
+data/cache/derived/treasurydirect_issued_maturing_current.parquet
 ```
+
+This derived file should also be replaced on each successful refresh. It represents the latest report snapshot generated from the current rolling-window source rows.
 
 Possible browser artifact names:
 
@@ -297,7 +330,7 @@ Weekend rollover should match the PowerShell script: weekend completed changes a
 
 This feature is near-term operational data. It should eventually refresh on business days after TreasuryDirect auction/security data is expected to be current.
 
-Do not add a scheduled workflow until the source adapter and derived dataset have been validated locally and against the legacy report.
+Do not add a scheduled workflow until the source adapter and derived dataset have been validated locally and against the legacy report. When scheduling is added, each run should perform a fresh rolling-window fetch rather than an incremental update.
 
 ## Risks And Guardrails
 
@@ -305,14 +338,15 @@ TreasuryDirect can change API shape or field availability. The adapter should fa
 
 Numeric fields arrive as strings. The adapter should parse amount fields through a single helper and treat blanks as null/zero according to field semantics, not by accidental Python coercion.
 
-Projected values must be labeled clearly in the derived dataset and UI. They should not be confused with completed issuance.
+Projected values must be labeled clearly in the derived dataset and UI. They should not be confused with completed issuance. Future/provisional rows should never be merged into a canonical historical truth table by accident.
 
 The official API Community page now gives us a concrete newer API surface, but not a proven replacement. For the first implementation, the practical contract is still the combination of TreasuryDirect official pages, the legacy working script, and the live `TA_WS` response checks above.
 
 ## Open Questions
 
-- Should the source cache keep one combined file with `query_mode`, or three source files by query mode?
+- Should the current rolling-window source keep one combined file with `query_mode`, or three current files by query mode?
 - Should the first CLI checkpoint reproduce the PowerShell table exactly, or only verify row data parity?
 - Should the browser page include a terminal-style artifact alongside the native table?
 - Should the date window be user-configurable in the static page, precomputed in several windows, or fixed at publish time?
+- If report snapshots are added, what retention policy and storage path should they use?
 - How should TIPS and FRNs be represented? The legacy table focuses on Bills, Notes, and Bonds, while TreasuryDirect's UI notes that FRNs are listed with Notes and TIPS with Bonds.
