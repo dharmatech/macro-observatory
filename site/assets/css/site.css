@@ -877,8 +877,21 @@ body.chart-expanded-active {
   margin-top: 0;
 }
 
+.tga-top-table-panel .table-frame {
+  max-height: 430px;
+  overflow: auto;
+}
+
 .tga-top-table {
   min-width: 560px;
+}
+
+.tga-top-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--border);
 }
 
 .tga-top-table th:first-child,
