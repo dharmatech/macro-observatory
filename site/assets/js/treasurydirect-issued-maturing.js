@@ -87,7 +87,7 @@
   let metadata = null;
   let rows = [];
   let columnIndex = {};
-  const collapsedGroups = new Set();
+  const collapsedGroups = new Set(["bills", "notes", "bonds"]);
   const timings = {
     fetch: null,
     parse: null,

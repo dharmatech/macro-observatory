@@ -353,11 +353,15 @@ def test_treasurydirect_issued_maturing_table_has_row_tracking_styles() -> None:
     assert 'data-group-toggle="bills"' in page_html
     assert 'data-group-toggle="notes"' in page_html
     assert 'data-group-toggle="bonds"' in page_html
-    assert 'aria-expanded="true"' in page_html
+    assert 'group-collapsed-bills group-collapsed-notes group-collapsed-bonds' in page_html
+    assert 'aria-expanded="false"' in page_html
+    assert 'Expand Bills columns' in page_html
+    assert '<span class="group-toggle-symbol" aria-hidden="true">+</span>' in page_html
     assert 'data-column-role="change"' in page_html
     assert "GROUP_START_COLUMNS" in script
     assert "COLLAPSIBLE_GROUPS" in script
     assert "COLLAPSIBLE_COLUMNS" in script
+    assert 'new Set(["bills", "notes", "bonds"])' in script
     assert "group-collapsed-bills" in script
     assert "aria-expanded" in script
     assert "issued_bills" in script
