@@ -342,6 +342,35 @@ Projected values must be labeled clearly in the derived dataset and UI. They sho
 
 The official API Community page now gives us a concrete newer API surface, but not a proven replacement. For the first implementation, the practical contract is still the combination of TreasuryDirect official pages, the legacy working script, and the live `TA_WS` response checks above.
 
+## Future Research: Auction Tail
+
+Auction tail should be treated as a potential analytical enhancement, not part of the first issued/maturing report.
+
+The conventional tail measure compares the auction stop-out result with the pre-auction when-issued market level, usually expressed in basis points:
+
+```text
+tail = auction stop-out yield/rate - when-issued yield/rate
+```
+
+A positive tail generally means the auction stopped at a higher yield or rate than the when-issued market expected, which is usually interpreted as weaker demand. A negative tail, often called a stop-through, generally means the auction stopped below the when-issued level, which is usually interpreted as stronger demand. A near-zero tail is often described as on-the-screws.
+
+TreasuryDirect provides the auction result side of that calculation, such as high yield, high discount rate, high discount margin, prices, bid-to-cover, and award breakdowns. It does not appear to provide the pre-auction when-issued yield or rate needed to compute true tail directly.
+
+That means Macro Observatory should not claim to calculate auction tail from TreasuryDirect data alone. A future implementation would need either:
+
+- a reliable external source for pre-auction when-issued yield, discount rate, or discount margin data, or
+- a reliable source that reports the tail directly with enough provenance to store and validate it.
+
+Instrument conventions need to be explicit:
+
+- Notes, Bonds, and TIPS would compare the auction high yield with the comparable when-issued yield.
+- Bills would compare the auction high discount rate, or another explicitly chosen bill-rate convention, with the comparable when-issued bill rate.
+- FRNs would compare the auction high discount margin with the comparable when-issued discount margin.
+
+If a reliable when-issued source is found, the derived auction model should store the source, observation timestamp, units, and convention used. Validation should compare calculated values with market-reported tails before exposing the field in the UI.
+
+This is explicitly out of scope for the first adapter checkpoint.
+
 ## Future Research: Security Row Stability
 
 A later research checkpoint can investigate whether some TreasuryDirect security rows become stable enough to retain in a canonical historical cache.
