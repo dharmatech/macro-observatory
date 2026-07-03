@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pytest
+import requests
 
 from macro_observatory.cache import load_cache, load_metadata, update_dataset
 from macro_observatory.models import DatasetSpec
@@ -191,7 +193,7 @@ class FakeResponse:
 
 @dataclass
 class FakeSession:
-    responses: list[dict[str, Any]]
+    responses: list[dict[str, Any] | requests.exceptions.RequestException]
     calls: list[dict[str, Any]]
 
     def get(
@@ -202,7 +204,10 @@ class FakeSession:
         timeout: float,
     ) -> FakeResponse:
         self.calls.append({"url": url, "params": params, "timeout": timeout})
-        return FakeResponse(self.responses.pop(0))
+        response = self.responses.pop(0)
+        if isinstance(response, requests.exceptions.RequestException):
+            raise response
+        return FakeResponse(response)
 
 
 @dataclass
@@ -278,6 +283,60 @@ def test_treasury_fiscal_data_fetch_paginates_and_captures_schema_metadata() -> 
     assert metadata["pages_fetched"] == 2
     assert metadata["rows_fetched"] == 2
     assert metadata["fiscal_data_meta"]["dataFormats"]["open_today_bal"] == "$1,000,000"
+
+
+def test_treasury_fiscal_data_fetch_retries_transient_connection_error() -> None:
+    row = operating_cash_balance_row(
+        "2026-07-01",
+        "Treasury General Account (TGA) Closing Balance",
+        "4",
+        open_today_bal="807359",
+    )
+    session = FakeSession(
+        responses=[
+            requests.exceptions.ConnectionError("remote disconnected"),
+            fiscal_payload([row], total_pages=1),
+        ],
+        calls=[],
+    )
+    sleep_calls: list[float] = []
+    adapter = TreasuryFiscalDataAdapter(
+        "https://example.test/operating_cash_balance",
+        session=session,
+        retry_attempts=2,
+        retry_backoff_seconds=0.0,
+        retry_sleep=sleep_calls.append,
+    )
+
+    df = adapter.fetch(date(2026, 7, 1))
+
+    assert len(session.calls) == 2
+    assert sleep_calls == [0.0]
+    assert df.loc[0, "open_today_bal"] == "807359"
+
+
+def test_treasury_fiscal_data_fetch_raises_after_retry_exhaustion() -> None:
+    session = FakeSession(
+        responses=[
+            requests.exceptions.ConnectionError("remote disconnected"),
+            requests.exceptions.Timeout("timed out"),
+        ],
+        calls=[],
+    )
+    sleep_calls: list[float] = []
+    adapter = TreasuryFiscalDataAdapter(
+        "https://example.test/operating_cash_balance",
+        session=session,
+        retry_attempts=2,
+        retry_backoff_seconds=0.0,
+        retry_sleep=sleep_calls.append,
+    )
+
+    with pytest.raises(requests.exceptions.Timeout):
+        adapter.fetch(date(2026, 7, 1))
+
+    assert len(session.calls) == 2
+    assert sleep_calls == [0.0]
 
 
 def test_treasury_operating_cash_balance_cache_normalizes_numeric_fields(tmp_path: Path) -> None:

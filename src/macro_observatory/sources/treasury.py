@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import logging
+import random
+import time
+from collections.abc import Callable
 from datetime import date
 from typing import Any, Protocol, cast
 
 import pandas as pd
 import requests
+
+LOGGER = logging.getLogger(__name__)
+
+DEFAULT_TREASURY_RETRY_ATTEMPTS = 4
+DEFAULT_TREASURY_RETRY_BACKOFF_SECONDS = 1.0
+DEFAULT_TREASURY_RETRY_MAX_BACKOFF_SECONDS = 15.0
 
 TREASURY_FISCAL_SERVICE_BASE_URL = (
     "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
@@ -211,13 +221,28 @@ class TreasuryFiscalDataAdapter:
         sort: str = "record_date,src_line_nbr",
         session: HttpSession | None = None,
         timeout: float = 30.0,
+        retry_attempts: int = DEFAULT_TREASURY_RETRY_ATTEMPTS,
+        retry_backoff_seconds: float = DEFAULT_TREASURY_RETRY_BACKOFF_SECONDS,
+        retry_max_backoff_seconds: float = DEFAULT_TREASURY_RETRY_MAX_BACKOFF_SECONDS,
+        retry_sleep: Callable[[float], None] = time.sleep,
     ) -> None:
+        if retry_attempts < 1:
+            raise ValueError("retry_attempts must be at least 1")
+        if retry_backoff_seconds < 0:
+            raise ValueError("retry_backoff_seconds must be non-negative")
+        if retry_max_backoff_seconds < 0:
+            raise ValueError("retry_max_backoff_seconds must be non-negative")
+
         self.endpoint_url = endpoint_url
         self.date_field = date_field
         self.page_size = page_size
         self.sort = sort
         self.session = session or cast(HttpSession, requests.Session())
         self.timeout = timeout
+        self.retry_attempts = retry_attempts
+        self.retry_backoff_seconds = retry_backoff_seconds
+        self.retry_max_backoff_seconds = retry_max_backoff_seconds
+        self.retry_sleep = retry_sleep
         self._last_source_metadata: dict[str, Any] | None = None
 
     def fetch(self, start_date: date | None) -> pd.DataFrame:
@@ -262,18 +287,57 @@ class TreasuryFiscalDataAdapter:
         return dict(self._last_source_metadata)
 
     def _fetch_page(self, query_start: date, page_number: int) -> dict[str, Any]:
-        response = self.session.get(
-            self.endpoint_url,
-            params={
-                "filter": f"{self.date_field}:gte:{query_start.isoformat()}",
-                "sort": self.sort,
-                "page[number]": str(page_number),
-                "page[size]": str(self.page_size),
-            },
-            timeout=self.timeout,
+        params = {
+            "filter": f"{self.date_field}:gte:{query_start.isoformat()}",
+            "sort": self.sort,
+            "page[number]": str(page_number),
+            "page[size]": str(self.page_size),
+        }
+
+        for attempt in range(1, self.retry_attempts + 1):
+            try:
+                response = self.session.get(
+                    self.endpoint_url,
+                    params=params,
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                return response.json()
+            except requests.exceptions.RequestException as exc:
+                if not self._is_transient_request_error(exc) or attempt >= self.retry_attempts:
+                    raise
+                delay_seconds = self._retry_delay_seconds(attempt)
+                LOGGER.warning(
+                    "Transient Treasury Fiscal Data request failure; retrying "
+                    "endpoint=%s page=%s attempt=%s/%s delay=%.2fs error=%s",
+                    self.endpoint_url,
+                    page_number,
+                    attempt,
+                    self.retry_attempts,
+                    delay_seconds,
+                    exc,
+                )
+                self.retry_sleep(delay_seconds)
+
+        raise RuntimeError("Treasury Fiscal Data retry loop ended unexpectedly")
+
+    @staticmethod
+    def _is_transient_request_error(exc: requests.exceptions.RequestException) -> bool:
+        if isinstance(exc, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            return True
+        if isinstance(exc, requests.exceptions.HTTPError) and exc.response is not None:
+            status_code = exc.response.status_code
+            return status_code == 429 or 500 <= status_code <= 599
+        return False
+
+    def _retry_delay_seconds(self, attempt: int) -> float:
+        base_delay = self.retry_backoff_seconds * (2 ** (attempt - 1))
+        capped_delay = min(base_delay, self.retry_max_backoff_seconds)
+        jitter_window = min(
+            capped_delay * 0.2,
+            max(0.0, self.retry_max_backoff_seconds - capped_delay),
         )
-        response.raise_for_status()
-        return response.json()
+        return float(capped_delay + (random.random() * jitter_window))
 
     @staticmethod
     def _rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
