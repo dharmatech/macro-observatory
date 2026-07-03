@@ -81,6 +81,7 @@ treasurydirect_securities_current                               TreasuryDirect S
 treasury_tga                                                     Treasury General Account (TGA)
 treasury_dts_deposits_withdrawals_operating_cash_explorer        Treasury DTS Deposits and Withdrawals Explorer Dataset
 treasury_securities_net_issuance                                 Treasury Securities Net Issuance
+treasurydirect_issued_maturing_current                           TreasuryDirect Issued/Maturing Current Report
 fed_net_liquidity                                                Fed Net Liquidity
 ```
 
@@ -297,6 +298,39 @@ is_current_window
 ```
 
 These cache files are ignored by git.
+
+## Build Derived TreasuryDirect Issued/Maturing Current Report
+
+Build the current issued/maturing report table from the TreasuryDirect current-window source cache:
+
+```powershell
+uv run macro-observatory build-derived treasurydirect_issued_maturing_current
+```
+
+This command reads:
+
+```text
+data/cache/sources/treasurydirect_securities_current.parquet
+```
+
+and writes:
+
+```text
+data/cache/derived/treasurydirect_issued_maturing_current.parquet
+data/cache/metadata/treasurydirect_issued_maturing_current.json
+```
+
+The derived cache is report-ready and current-window scoped. It preserves the legacy PowerShell report semantics: Bills, Notes, Bonds, Total, auction markers, auction issuing dates, offering amount, SOMA tendered, projected change, projected security-type changes, and weekend rollover fields.
+
+Amounts are stored in raw U.S. dollars. Browser and terminal presentation layers can format them as billions later.
+
+The report date range uses the source cache window with `query_start_date` included and `query_end_date` excluded, matching the legacy PowerShell `date-range` behavior. Weekend rows are kept only when the completed `change` is non-zero; completed weekend changes roll into the next weekday through `change_with_weekend` and `weekend`.
+
+If the source cache is missing, run this first:
+
+```powershell
+uv run macro-observatory refresh-current treasurydirect_securities_current
+```
 
 ## Build Derived Treasury TGA
 
@@ -914,6 +948,7 @@ uv run macro-observatory info treasury_dts_operating_cash_balance
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory info treasury_od_auctions_query
 uv run macro-observatory info treasurydirect_securities_current
+uv run macro-observatory info treasurydirect_issued_maturing_current
 uv run macro-observatory info treasury_tga
 uv run macro-observatory info treasury_dts_deposits_withdrawals_operating_cash_explorer
 uv run macro-observatory info treasury_securities_net_issuance
@@ -933,6 +968,7 @@ uv run macro-observatory show treasury_dts_operating_cash_balance --rows 10
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash --rows 10
 uv run macro-observatory show treasury_od_auctions_query --rows 10
 uv run macro-observatory show treasurydirect_securities_current --rows 10
+uv run macro-observatory show treasurydirect_issued_maturing_current --rows 10
 uv run macro-observatory show treasury_tga --rows 10
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 10
 uv run macro-observatory show treasury_securities_net_issuance --rows 10
@@ -947,6 +983,7 @@ uv run macro-observatory show treasury_dts_operating_cash_balance --rows 25
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash --rows 25
 uv run macro-observatory show treasury_od_auctions_query --rows 25
 uv run macro-observatory show treasurydirect_securities_current --rows 25
+uv run macro-observatory show treasurydirect_issued_maturing_current --rows 25
 uv run macro-observatory show treasury_tga --rows 25
 uv run macro-observatory show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 25
 uv run macro-observatory show treasury_securities_net_issuance --rows 25
@@ -966,6 +1003,7 @@ uv run macro-observatory export treasury_dts_operating_cash_balance --format csv
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash --format csv --output exports/treasury_dts_deposits_withdrawals_operating_cash.csv
 uv run macro-observatory export treasury_od_auctions_query --format csv --output exports/treasury_od_auctions_query.csv
 uv run macro-observatory export treasurydirect_securities_current --format csv --output exports/treasurydirect_securities_current.csv
+uv run macro-observatory export treasurydirect_issued_maturing_current --format csv --output exports/treasurydirect_issued_maturing_current.csv
 uv run macro-observatory export treasury_tga --format csv --output exports/treasury_tga.csv
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash_explorer --format csv --output exports/treasury_dts_deposits_withdrawals_operating_cash_explorer.csv
 uv run macro-observatory export treasury_securities_net_issuance --format csv --output exports/treasury_securities_net_issuance.csv
@@ -983,6 +1021,7 @@ uv run macro-observatory export treasury_dts_operating_cash_balance --format par
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash --format parquet --output exports/treasury_dts_deposits_withdrawals_operating_cash.parquet
 uv run macro-observatory export treasury_od_auctions_query --format parquet --output exports/treasury_od_auctions_query.parquet
 uv run macro-observatory export treasurydirect_securities_current --format parquet --output exports/treasurydirect_securities_current.parquet
+uv run macro-observatory export treasurydirect_issued_maturing_current --format parquet --output exports/treasurydirect_issued_maturing_current.parquet
 uv run macro-observatory export treasury_tga --format parquet --output exports/treasury_tga.parquet
 uv run macro-observatory export treasury_dts_deposits_withdrawals_operating_cash_explorer --format parquet --output exports/treasury_dts_deposits_withdrawals_operating_cash_explorer.parquet
 uv run macro-observatory export treasury_securities_net_issuance --format parquet --output exports/treasury_securities_net_issuance.parquet
@@ -1012,6 +1051,7 @@ df_treasury_ocb = load_dataset("treasury_dts_operating_cash_balance")
 df_treasury_deposits_withdrawals = load_dataset("treasury_dts_deposits_withdrawals_operating_cash")
 df_treasury_auctions = load_dataset("treasury_od_auctions_query")
 df_treasurydirect_current = load_dataset("treasurydirect_securities_current")
+df_treasurydirect_report = load_dataset("treasurydirect_issued_maturing_current")
 df_tga = load_dataset("treasury_tga")
 df_tga_explorer = load_dataset("treasury_dts_deposits_withdrawals_operating_cash_explorer")
 df_treasury_net_issuance = load_dataset("treasury_securities_net_issuance")
@@ -1025,6 +1065,7 @@ df_treasury_ocb.tail()
 df_treasury_deposits_withdrawals.tail()
 df_treasury_auctions.tail()
 df_treasurydirect_current.tail()
+df_treasurydirect_report.tail()
 df_tga.tail()
 df_tga_explorer.tail()
 df_treasury_net_issuance.tail()
@@ -1066,6 +1107,7 @@ uv run macro-observatory --data-dir scratch-data update treasury_dts_operating_c
 uv run macro-observatory --data-dir scratch-data update treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory --data-dir scratch-data update treasury_od_auctions_query
 uv run macro-observatory --data-dir scratch-data refresh-current treasurydirect_securities_current
+uv run macro-observatory --data-dir scratch-data build-derived treasurydirect_issued_maturing_current
 uv run macro-observatory --data-dir scratch-data build-derived treasury_tga
 uv run macro-observatory --data-dir scratch-data build-derived treasury_dts_deposits_withdrawals_operating_cash_explorer
 uv run macro-observatory --data-dir scratch-data build-derived treasury_securities_net_issuance
@@ -1080,6 +1122,7 @@ uv run macro-observatory --data-dir scratch-data info treasury_dts_operating_cas
 uv run macro-observatory --data-dir scratch-data info treasury_dts_deposits_withdrawals_operating_cash
 uv run macro-observatory --data-dir scratch-data info treasury_od_auctions_query
 uv run macro-observatory --data-dir scratch-data info treasurydirect_securities_current
+uv run macro-observatory --data-dir scratch-data info treasurydirect_issued_maturing_current
 uv run macro-observatory --data-dir scratch-data info treasury_tga
 uv run macro-observatory --data-dir scratch-data info treasury_dts_deposits_withdrawals_operating_cash_explorer
 uv run macro-observatory --data-dir scratch-data info treasury_securities_net_issuance
@@ -1089,6 +1132,7 @@ uv run macro-observatory --data-dir scratch-data show treasury_dts_operating_cas
 uv run macro-observatory --data-dir scratch-data show treasury_dts_deposits_withdrawals_operating_cash --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_od_auctions_query --rows 5
 uv run macro-observatory --data-dir scratch-data show treasurydirect_securities_current --rows 5
+uv run macro-observatory --data-dir scratch-data show treasurydirect_issued_maturing_current --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_tga --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_dts_deposits_withdrawals_operating_cash_explorer --rows 5
 uv run macro-observatory --data-dir scratch-data show treasury_securities_net_issuance --rows 5

@@ -25,6 +25,7 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
         "treasury_od_auctions_query",
         "treasury_securities_net_issuance",
         "treasury_tga",
+        "treasurydirect_issued_maturing_current",
         "treasurydirect_securities_current",
     ]
 
@@ -199,6 +200,22 @@ def test_registry_contains_initial_source_and_derived_datasets(tmp_path: Path) -
     )
     assert treasury_securities.source_units == "U.S. dollars"
     assert treasury_securities.display_units == "U.S. dollars"
+    treasurydirect_report = registry["treasurydirect_issued_maturing_current"]
+    assert treasurydirect_report.title == "TreasuryDirect Issued/Maturing Current Report"
+    assert treasurydirect_report.source_name == "Macro Observatory Derived"
+    assert treasurydirect_report.kind == "derived"
+    assert treasurydirect_report.adapter is None
+    assert treasurydirect_report.date_column == "date"
+    assert treasurydirect_report.primary_key == ("date",)
+    assert treasurydirect_report.cache_path == (
+        tmp_path / "cache" / "derived" / "treasurydirect_issued_maturing_current.parquet"
+    )
+    assert treasurydirect_report.metadata_path == (
+        tmp_path / "cache" / "metadata" / "treasurydirect_issued_maturing_current.json"
+    )
+    assert treasurydirect_report.source_units == "U.S. dollars"
+    assert treasurydirect_report.display_units == "U.S. dollars"
+    assert "projected_change_bonds" in treasurydirect_report.required_columns
 
     net_liquidity = registry["fed_net_liquidity"]
     assert net_liquidity.title == "Fed Net Liquidity"
@@ -233,6 +250,7 @@ def test_get_dataset_spec_error_lists_known_ids(tmp_path: Path) -> None:
     assert "treasury_securities_net_issuance" in message
     assert "treasurydirect_securities_current" in message
     assert "treasury_tga" in message
+    assert "treasurydirect_issued_maturing_current" in message
 
 
 def test_update_dataset_rejects_derived_specs(tmp_path: Path) -> None:

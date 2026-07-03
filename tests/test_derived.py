@@ -14,6 +14,7 @@ from macro_observatory.derived import (
     derive_tga_explorer,
     derive_treasury_securities_net_issuance,
     derive_treasury_tga,
+    derive_treasurydirect_issued_maturing,
 )
 from macro_observatory.registry import get_dataset_spec
 from macro_observatory.sources.treasury import TREASURY_AUCTIONS_QUERY_COLUMNS
@@ -150,6 +151,137 @@ def treasury_auctions_rows() -> pd.DataFrame:
             ),
         ]
     )
+
+
+def treasurydirect_current_row(
+    query_mode: str,
+    cusip: str,
+    *,
+    security_type: str,
+    issue_date: str,
+    maturity_date: str,
+    auction_date: str,
+    total_accepted: str,
+    offering_amount: str = "null",
+    soma_tendered: str = "null",
+    query_start_date: str = "2024-01-05",
+    query_end_date: str = "2024-01-10",
+) -> dict[str, str | bool]:
+    query_date_by_mode = {
+        "issueDate": issue_date,
+        "maturityDate": maturity_date,
+        "auctionDate": auction_date,
+    }
+    return {
+        "query_mode": query_mode,
+        "query_start_date": query_start_date,
+        "query_end_date": query_end_date,
+        "query_date": query_date_by_mode[query_mode],
+        "retrieved_at": "2024-01-05T12:00:00+00:00",
+        "is_current_window": True,
+        "cusip": cusip,
+        "securityType": security_type,
+        "type": security_type,
+        "auctionDate": auction_date,
+        "issueDate": issue_date,
+        "maturityDate": maturity_date,
+        "totalAccepted": total_accepted,
+        "offeringAmount": offering_amount,
+        "somaTendered": soma_tendered,
+    }
+
+
+def treasurydirect_current_rows() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            treasurydirect_current_row(
+                "issueDate",
+                "BILL1",
+                security_type="Bill",
+                issue_date="2024-01-05",
+                maturity_date="2024-02-01",
+                auction_date="2024-01-03",
+                total_accepted="100",
+                offering_amount="120",
+                soma_tendered="10",
+            ),
+            treasurydirect_current_row(
+                "issueDate",
+                "NOTE1",
+                security_type="Note",
+                issue_date="2024-01-06",
+                maturity_date="2024-02-15",
+                auction_date="2024-01-04",
+                total_accepted="200",
+                offering_amount="200",
+                soma_tendered="0",
+            ),
+            treasurydirect_current_row(
+                "issueDate",
+                "BOND1",
+                security_type="Bond",
+                issue_date="2024-01-08",
+                maturity_date="2024-03-01",
+                auction_date="2024-01-05",
+                total_accepted="300",
+                offering_amount="300",
+                soma_tendered="20",
+            ),
+            treasurydirect_current_row(
+                "maturityDate",
+                "BILL-M1",
+                security_type="Bill",
+                issue_date="2023-12-01",
+                maturity_date="2024-01-05",
+                auction_date="2023-11-28",
+                total_accepted="40",
+            ),
+            treasurydirect_current_row(
+                "maturityDate",
+                "NOTE-M1",
+                security_type="Note",
+                issue_date="2023-12-06",
+                maturity_date="2024-01-06",
+                auction_date="2023-12-01",
+                total_accepted="50",
+            ),
+            treasurydirect_current_row(
+                "maturityDate",
+                "BILL-M2",
+                security_type="Bill",
+                issue_date="2023-12-07",
+                maturity_date="2024-01-07",
+                auction_date="2023-12-02",
+                total_accepted="10",
+            ),
+            treasurydirect_current_row(
+                "maturityDate",
+                "BOND-M1",
+                security_type="Bond",
+                issue_date="2023-12-08",
+                maturity_date="2024-01-08",
+                auction_date="2023-12-03",
+                total_accepted="100",
+            ),
+            treasurydirect_current_row(
+                "auctionDate",
+                "AUCT1",
+                security_type="Bond",
+                issue_date="2024-01-08",
+                maturity_date="2024-03-01",
+                auction_date="2024-01-05",
+                total_accepted="0",
+                offering_amount="300",
+                soma_tendered="20",
+            ),
+        ]
+    )
+
+
+def treasurydirect_report_row(df: pd.DataFrame, date: str) -> pd.Series:
+    selected = df.loc[df["date"] == pd.Timestamp(date)]
+    assert len(selected) == 1
+    return selected.iloc[0]
 
 
 def treasury_securities_row(
@@ -479,6 +611,155 @@ def test_build_derived_treasury_securities_net_issuance_writes_cache_and_metadat
     assert metadata.source_metadata["security_type_normalization"]["CMB"] == "Bill"
     assert "Future maturities" in metadata.source_metadata["date_policy"]
     assert "W-SUN" in metadata.source_metadata["resample_policy"]
+
+
+def test_derive_treasurydirect_issued_maturing_matches_legacy_report_semantics() -> None:
+    derived = derive_treasurydirect_issued_maturing(treasurydirect_current_rows())
+
+    assert derived.columns.tolist() == [
+        "date",
+        "issued_bills",
+        "maturing_bills",
+        "bills_change",
+        "issued_notes",
+        "maturing_notes",
+        "notes_change",
+        "issued_bonds",
+        "maturing_bonds",
+        "bonds_change",
+        "issued",
+        "maturing",
+        "change",
+        "change_with_weekend",
+        "weekend",
+        "auction",
+        "auction_issuing",
+        "offering_amount",
+        "soma_tendered",
+        "projected_change",
+        "projected_change_bills",
+        "projected_change_notes",
+        "projected_change_bonds",
+    ]
+    assert derived["date"].dt.date.astype(str).tolist() == [
+        "2024-01-05",
+        "2024-01-06",
+        "2024-01-07",
+        "2024-01-08",
+        "2024-01-09",
+    ]
+    assert "2024-01-10" not in set(derived["date"].dt.date.astype(str))
+
+    friday = treasurydirect_report_row(derived, "2024-01-05")
+    assert friday["issued_bills"] == 100
+    assert friday["maturing_bills"] == 40
+    assert friday["bills_change"] == 60
+    assert friday["issued"] == 100
+    assert friday["maturing"] == 40
+    assert friday["change"] == 60
+    assert friday["auction"] == "*"
+    assert friday["offering_amount"] == 120
+    assert friday["soma_tendered"] == 10
+    assert friday["projected_change"] == 90
+    assert friday["projected_change_bills"] == 90
+    assert pd.isna(friday["projected_change_notes"])
+
+    saturday = treasurydirect_report_row(derived, "2024-01-06")
+    assert saturday["issued_notes"] == 200
+    assert saturday["maturing_notes"] == 50
+    assert saturday["notes_change"] == 150
+
+    sunday = treasurydirect_report_row(derived, "2024-01-07")
+    assert sunday["issued"] == 0
+    assert sunday["maturing"] == 10
+    assert sunday["change"] == -10
+
+    monday = treasurydirect_report_row(derived, "2024-01-08")
+    assert monday["issued_bonds"] == 300
+    assert monday["maturing_bonds"] == 100
+    assert monday["bonds_change"] == 200
+    assert monday["auction_issuing"] == "2024-01-05"
+    assert monday["weekend"] == 140
+    assert monday["change_with_weekend"] == 340
+    assert monday["projected_change"] == 220
+    assert monday["projected_change_bonds"] == 220
+
+    tuesday = treasurydirect_report_row(derived, "2024-01-09")
+    assert tuesday["issued"] == 0
+    assert tuesday["maturing"] == 0
+    assert tuesday["change"] == 0
+    assert pd.isna(tuesday["projected_change"])
+
+
+def test_derive_treasurydirect_issued_maturing_filters_zero_change_weekends() -> None:
+    rows = treasurydirect_current_rows()
+    rows.loc[rows["cusip"] == "NOTE1", "totalAccepted"] = "50"
+    rows.loc[rows["cusip"] == "BILL-M2", "totalAccepted"] = "0"
+
+    derived = derive_treasurydirect_issued_maturing(rows)
+
+    assert "2024-01-06" not in set(derived["date"].dt.date.astype(str))
+    assert "2024-01-07" not in set(derived["date"].dt.date.astype(str))
+    monday = treasurydirect_report_row(derived, "2024-01-08")
+    assert pd.isna(monday["weekend"])
+    assert pd.isna(monday["change_with_weekend"])
+
+
+def test_build_derived_treasurydirect_issued_maturing_requires_source_cache(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(MissingSourceCacheError) as exc_info:
+        build_derived_dataset("treasurydirect_issued_maturing_current", data_dir=tmp_path)
+
+    assert "refresh-current treasurydirect_securities_current" in str(exc_info.value)
+
+
+def test_build_derived_treasurydirect_issued_maturing_writes_cache_and_metadata(
+    tmp_path: Path,
+) -> None:
+    source_spec = get_dataset_spec("treasurydirect_securities_current", tmp_path)
+    target_spec = get_dataset_spec("treasurydirect_issued_maturing_current", tmp_path)
+    replace_dataset(
+        source_spec,
+        treasurydirect_current_rows(),
+        source_metadata={"endpoint_url": "https://example.test/TA_WS/securities/search"},
+    )
+
+    result = build_derived_dataset("treasurydirect_issued_maturing_current", data_dir=tmp_path)
+
+    assert result.dataset_id == "treasurydirect_issued_maturing_current"
+    assert result.rows_before == 0
+    assert result.rows_fetched == 5
+    assert result.rows_after == 5
+    assert target_spec.cache_path.exists()
+    assert target_spec.metadata_path.exists()
+
+    cached = load_cache(target_spec)
+    monday = treasurydirect_report_row(cached, "2024-01-08")
+    assert monday["change_with_weekend"] == 340
+
+    loaded = load_dataset("treasurydirect_issued_maturing_current", data_dir=tmp_path)
+    assert loaded.equals(cached)
+
+    metadata = load_metadata(target_spec)
+    assert metadata is not None
+    assert metadata.dataset_id == "treasurydirect_issued_maturing_current"
+    assert metadata.row_count == 5
+    assert metadata.source_metadata is not None
+    assert metadata.source_metadata["derived_from"] == ["treasurydirect_securities_current"]
+    assert (
+        metadata.source_metadata["source_endpoint"]
+        == "https://example.test/TA_WS/securities/search"
+    )
+    assert metadata.source_metadata["source_row_count"] == 8
+    assert metadata.source_metadata["query_window_start_date"] == "2024-01-05"
+    assert metadata.source_metadata["query_window_end_date_exclusive"] == "2024-01-10"
+    assert metadata.source_metadata["security_types"] == ["Bill", "Note", "Bond"]
+    assert "end_date is excluded" in metadata.source_metadata["date_policy"]
+    assert (
+        "Weekend rows are kept only when change is non-zero"
+        in metadata.source_metadata["weekend_policy"]
+    )
 
 
 def test_derive_fed_net_liquidity_forward_fills_and_converts_units() -> None:

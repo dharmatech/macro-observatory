@@ -278,6 +278,73 @@ def _treasury_securities_net_issuance_spec(derived_dir: Path, metadata_dir: Path
     )
 
 
+def _treasurydirect_issued_maturing_current_spec(
+    derived_dir: Path, metadata_dir: Path
+) -> DatasetSpec:
+    value_columns = (
+        "issued_bills",
+        "maturing_bills",
+        "bills_change",
+        "issued_notes",
+        "maturing_notes",
+        "notes_change",
+        "issued_bonds",
+        "maturing_bonds",
+        "bonds_change",
+        "issued",
+        "maturing",
+        "change",
+        "change_with_weekend",
+        "weekend",
+        "offering_amount",
+        "soma_tendered",
+        "projected_change",
+        "projected_change_bills",
+        "projected_change_notes",
+        "projected_change_bonds",
+    )
+    return DatasetSpec(
+        id="treasurydirect_issued_maturing_current",
+        title="TreasuryDirect Issued/Maturing Current Report",
+        source_name="Macro Observatory Derived",
+        adapter=None,
+        date_column="date",
+        primary_key=("date",),
+        overlap_days=0,
+        cache_path=derived_dir / "treasurydirect_issued_maturing_current.parquet",
+        metadata_path=metadata_dir / "treasurydirect_issued_maturing_current.json",
+        required_columns=(
+            "date",
+            "issued_bills",
+            "maturing_bills",
+            "bills_change",
+            "issued_notes",
+            "maturing_notes",
+            "notes_change",
+            "issued_bonds",
+            "maturing_bonds",
+            "bonds_change",
+            "issued",
+            "maturing",
+            "change",
+            "change_with_weekend",
+            "weekend",
+            "auction",
+            "auction_issuing",
+            "offering_amount",
+            "soma_tendered",
+            "projected_change",
+            "projected_change_bills",
+            "projected_change_notes",
+            "projected_change_bonds",
+        ),
+        numeric_columns=value_columns,
+        source_units=US_DOLLARS,
+        display_units=US_DOLLARS,
+        kind="derived",
+    )
+
+
 def _fed_net_liquidity_spec(derived_dir: Path, metadata_dir: Path) -> DatasetSpec:
     value_columns = (
         "walcl",
@@ -347,6 +414,7 @@ def build_registry(data_dir: Path = DEFAULT_DATA_DIR) -> dict[str, DatasetSpec]:
         _treasury_tga_spec(derived_dir, metadata_dir),
         _treasury_deposits_withdrawals_explorer_spec(derived_dir, metadata_dir),
         _treasury_securities_net_issuance_spec(derived_dir, metadata_dir),
+        _treasurydirect_issued_maturing_current_spec(derived_dir, metadata_dir),
         _fed_net_liquidity_spec(derived_dir, metadata_dir),
     )
     return {spec.id: spec for spec in specs}

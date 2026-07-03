@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -23,11 +23,13 @@ NYFED_RRP_DATASET_ID = "nyfed_rrp"
 TREASURY_OCB_DATASET_ID = "treasury_dts_operating_cash_balance"
 TREASURY_DTS_DEPOSITS_WITHDRAWALS_DATASET_ID = "treasury_dts_deposits_withdrawals_operating_cash"
 TREASURY_AUCTIONS_QUERY_DATASET_ID = "treasury_od_auctions_query"
+TREASURYDIRECT_SECURITIES_CURRENT_DATASET_ID = "treasurydirect_securities_current"
 TREASURY_TGA_DATASET_ID = "treasury_tga"
 TREASURY_DTS_DEPOSITS_WITHDRAWALS_EXPLORER_DATASET_ID = (
     "treasury_dts_deposits_withdrawals_operating_cash_explorer"
 )
 TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID = "treasury_securities_net_issuance"
+TREASURYDIRECT_ISSUED_MATURING_CURRENT_DATASET_ID = "treasurydirect_issued_maturing_current"
 FED_NET_LIQUIDITY_DATASET_ID = "fed_net_liquidity"
 MILLIONS_TO_DOLLARS = 1_000_000.0
 
@@ -74,6 +76,54 @@ TREASURY_SECURITY_TYPE_REPLACEMENTS = {
     "CMB": "Bill",
     "null": "Unknown",
 }
+TREASURYDIRECT_SECURITY_TYPES = ("Bill", "Note", "Bond")
+TREASURYDIRECT_ISSUED_MATURING_COLUMNS = (
+    "date",
+    "issued_bills",
+    "maturing_bills",
+    "bills_change",
+    "issued_notes",
+    "maturing_notes",
+    "notes_change",
+    "issued_bonds",
+    "maturing_bonds",
+    "bonds_change",
+    "issued",
+    "maturing",
+    "change",
+    "change_with_weekend",
+    "weekend",
+    "auction",
+    "auction_issuing",
+    "offering_amount",
+    "soma_tendered",
+    "projected_change",
+    "projected_change_bills",
+    "projected_change_notes",
+    "projected_change_bonds",
+)
+TREASURYDIRECT_ISSUED_MATURING_VALUE_COLUMNS = (
+    "issued_bills",
+    "maturing_bills",
+    "bills_change",
+    "issued_notes",
+    "maturing_notes",
+    "notes_change",
+    "issued_bonds",
+    "maturing_bonds",
+    "bonds_change",
+    "issued",
+    "maturing",
+    "change",
+    "change_with_weekend",
+    "weekend",
+    "offering_amount",
+    "soma_tendered",
+    "projected_change",
+    "projected_change_bills",
+    "projected_change_notes",
+    "projected_change_bonds",
+)
 FED_NET_LIQUIDITY_COLUMNS = (
     "date",
     "walcl",
@@ -97,6 +147,7 @@ DERIVED_DATASET_IDS = (
     TREASURY_TGA_DATASET_ID,
     TREASURY_DTS_DEPOSITS_WITHDRAWALS_EXPLORER_DATASET_ID,
     TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID,
+    TREASURYDIRECT_ISSUED_MATURING_CURRENT_DATASET_ID,
     FED_NET_LIQUIDITY_DATASET_ID,
 )
 
@@ -140,6 +191,8 @@ TGA_SELECTION_RULES = (
 def _build_command(dataset_id: str) -> str:
     if dataset_id in DERIVED_DATASET_IDS:
         return f"uv run macro-observatory build-derived {dataset_id}"
+    if dataset_id == TREASURYDIRECT_SECURITIES_CURRENT_DATASET_ID:
+        return f"uv run macro-observatory refresh-current {dataset_id}"
     return f"uv run macro-observatory update {dataset_id}"
 
 
@@ -334,6 +387,184 @@ def derive_treasury_securities_net_issuance(source_df: pd.DataFrame) -> pd.DataF
     return result.loc[:, list(TREASURY_SECURITIES_NET_ISSUANCE_COLUMNS)].copy()
 
 
+def _treasurydirect_current_source_frame(source_df: pd.DataFrame) -> pd.DataFrame:
+    required_columns = (
+        "query_mode",
+        "query_start_date",
+        "query_end_date",
+        "cusip",
+        "securityType",
+        "auctionDate",
+        "issueDate",
+        "maturityDate",
+        "totalAccepted",
+        "offeringAmount",
+        "somaTendered",
+    )
+    require_columns(source_df, required_columns)
+    if source_df.empty:
+        raise DerivedDatasetError("TreasuryDirect current source cache is empty.")
+
+    result = source_df.loc[:, list(required_columns)].copy()
+    for column in (
+        "query_start_date",
+        "query_end_date",
+        "auctionDate",
+        "issueDate",
+        "maturityDate",
+    ):
+        result[column] = pd.to_datetime(result[column], errors="coerce").dt.normalize()
+    for column in ("totalAccepted", "offeringAmount", "somaTendered"):
+        result[column] = pd.to_numeric(result[column], errors="coerce")
+    result["securityType"] = result["securityType"].astype("string").fillna("Unknown")
+    result["query_mode"] = result["query_mode"].astype("string")
+    return result
+
+
+def _treasurydirect_report_dates(prepared: pd.DataFrame) -> pd.DatetimeIndex:
+    start_values = prepared["query_start_date"].dropna()
+    end_values = prepared["query_end_date"].dropna()
+    if start_values.empty or end_values.empty:
+        raise DerivedDatasetError("TreasuryDirect current source is missing query window dates.")
+
+    start_date = start_values.min()
+    end_date = end_values.max()
+    if not isinstance(start_date, pd.Timestamp) or not isinstance(end_date, pd.Timestamp):
+        raise DerivedDatasetError("TreasuryDirect query window dates could not be parsed.")
+    if end_date <= start_date:
+        raise DerivedDatasetError("TreasuryDirect query window end date must be after start date.")
+
+    return pd.date_range(start=start_date, end=end_date - pd.Timedelta(days=1), freq="D")
+
+
+def _sum_amount(df: pd.DataFrame, column: str) -> float:
+    if df.empty:
+        return 0.0
+    return float(df[column].sum(skipna=True))
+
+
+def _optional_sum_amount(df: pd.DataFrame, column: str) -> float | None:
+    if df.empty:
+        return None
+    values = df[column].dropna()
+    if values.empty:
+        return None
+    return float(values.sum())
+
+
+def _projected_change(
+    *,
+    issued_rows: pd.DataFrame,
+    maturing_amount: float,
+    security_type: str | None = None,
+) -> float | None:
+    selected = issued_rows
+    if security_type is not None:
+        selected = selected.loc[selected["securityType"] == security_type]
+
+    offering_amount = _optional_sum_amount(selected, "offeringAmount")
+    if offering_amount is None:
+        return None
+    soma_tendered = _optional_sum_amount(selected, "somaTendered") or 0.0
+    return offering_amount + soma_tendered - maturing_amount
+
+
+def _treasurydirect_auction_issuing(auctioned: pd.DataFrame, current_date: pd.Timestamp) -> str:
+    selected = auctioned.loc[auctioned["issueDate"] == current_date]
+    if selected.empty:
+        return ""
+    auction_dates = selected["auctionDate"].dropna().dt.date.astype(str).sort_values().unique()
+    return " ".join(str(value) for value in auction_dates)
+
+
+def _treasurydirect_report_row(
+    prepared: pd.DataFrame, current_date: pd.Timestamp
+) -> dict[str, Any]:
+    issued = prepared.loc[
+        (prepared["query_mode"] == "issueDate") & (prepared["issueDate"] == current_date)
+    ]
+    maturing = prepared.loc[
+        (prepared["query_mode"] == "maturityDate") & (prepared["maturityDate"] == current_date)
+    ]
+    auctioned = prepared.loc[prepared["query_mode"] == "auctionDate"]
+    auctioned_today = auctioned.loc[auctioned["auctionDate"] == current_date]
+
+    row: dict[str, Any] = {"date": current_date}
+    issued_total = _sum_amount(issued, "totalAccepted")
+    maturing_total = _sum_amount(maturing, "totalAccepted")
+
+    for security_type in TREASURYDIRECT_SECURITY_TYPES:
+        key = security_type.lower()
+        issued_type = issued.loc[issued["securityType"] == security_type]
+        maturing_type = maturing.loc[maturing["securityType"] == security_type]
+        issued_amount = _sum_amount(issued_type, "totalAccepted")
+        maturing_amount = _sum_amount(maturing_type, "totalAccepted")
+        row[f"issued_{key}s"] = issued_amount
+        row[f"maturing_{key}s"] = maturing_amount
+        row[f"{key}s_change"] = issued_amount - maturing_amount
+
+    row["issued"] = issued_total
+    row["maturing"] = maturing_total
+    row["change"] = issued_total - maturing_total
+    row["change_with_weekend"] = pd.NA
+    row["weekend"] = pd.NA
+    row["auction"] = "*" if not auctioned_today.empty else ""
+    row["auction_issuing"] = _treasurydirect_auction_issuing(auctioned, current_date)
+    row["offering_amount"] = _optional_sum_amount(issued, "offeringAmount")
+    row["soma_tendered"] = _optional_sum_amount(issued, "somaTendered")
+    row["projected_change"] = _projected_change(
+        issued_rows=issued,
+        maturing_amount=maturing_total,
+    )
+    for security_type in TREASURYDIRECT_SECURITY_TYPES:
+        key = security_type.lower()
+        row[f"projected_change_{key}s"] = _projected_change(
+            issued_rows=issued,
+            maturing_amount=float(row[f"maturing_{key}s"]),
+            security_type=security_type,
+        )
+    return row
+
+
+def _apply_treasurydirect_weekend_rollover(report_df: pd.DataFrame) -> pd.DataFrame:
+    result = report_df.copy()
+    weekend = 0.0
+    for index in result.index:
+        current_date = cast(pd.Timestamp, result.at[index, "date"])
+        change = cast(float, result.at[index, "change"])
+        if current_date.dayofweek in (5, 6):
+            weekend += change
+            continue
+        if weekend != 0.0:
+            result.at[index, "change_with_weekend"] = change + weekend
+            result.at[index, "weekend"] = weekend
+            weekend = 0.0
+    return result
+
+
+def _filter_treasurydirect_report_rows(report_df: pd.DataFrame) -> pd.DataFrame:
+    dates = pd.to_datetime(report_df["date"], errors="raise")
+    is_weekend = dates.dt.dayofweek.isin((5, 6))
+    has_weekend_change = report_df["change"] != 0.0
+    return report_df.loc[(~is_weekend) | has_weekend_change].copy()
+
+
+def derive_treasurydirect_issued_maturing(source_df: pd.DataFrame) -> pd.DataFrame:
+    """Build the current TreasuryDirect issued/maturing report table."""
+    prepared = _treasurydirect_current_source_frame(source_df)
+    report_dates = _treasurydirect_report_dates(prepared)
+    rows = [_treasurydirect_report_row(prepared, current_date) for current_date in report_dates]
+    if not rows:
+        raise DerivedDatasetError("TreasuryDirect current window produced no report dates.")
+
+    result = pd.DataFrame(rows)
+    result = _apply_treasurydirect_weekend_rollover(result)
+    result = _filter_treasurydirect_report_rows(result)
+    result["date"] = pd.to_datetime(result["date"], errors="raise").dt.normalize()
+    result = result.sort_values("date").reset_index(drop=True)
+    return result.loc[:, list(TREASURYDIRECT_ISSUED_MATURING_COLUMNS)].copy()
+
+
 def _component_frame(
     df: pd.DataFrame,
     *,
@@ -507,6 +738,57 @@ def build_treasury_securities_net_issuance(*, data_dir: Path = DEFAULT_DATA_DIR)
     return replace_dataset(target_spec, derived_df, source_metadata=metadata)
 
 
+def build_treasurydirect_issued_maturing(*, data_dir: Path = DEFAULT_DATA_DIR) -> UpdateResult:
+    """Build and cache the current TreasuryDirect issued/maturing report table."""
+    source_spec = get_dataset_spec(TREASURYDIRECT_SECURITIES_CURRENT_DATASET_ID, data_dir)
+    target_spec = get_dataset_spec(TREASURYDIRECT_ISSUED_MATURING_CURRENT_DATASET_ID, data_dir)
+
+    _require_cache(
+        source_spec,
+        target_dataset_id=TREASURYDIRECT_ISSUED_MATURING_CURRENT_DATASET_ID,
+    )
+
+    source_df = load_cache(source_spec)
+    derived_df = derive_treasurydirect_issued_maturing(source_df)
+    prepared = _treasurydirect_current_source_frame(source_df)
+    report_dates = _treasurydirect_report_dates(prepared)
+    source_metadata = load_metadata(source_spec)
+    source_source_metadata = (
+        source_metadata.source_metadata
+        if source_metadata is not None and source_metadata.source_metadata is not None
+        else {}
+    )
+    metadata: dict[str, Any] = {
+        "derived_from": [TREASURYDIRECT_SECURITIES_CURRENT_DATASET_ID],
+        "source_endpoint": source_source_metadata.get("endpoint_url"),
+        "source_cache": str(source_spec.cache_path),
+        "source_row_count": len(source_df),
+        "source_rows": {TREASURYDIRECT_SECURITIES_CURRENT_DATASET_ID: len(source_df)},
+        "query_window_start_date": report_dates.min().date().isoformat(),
+        "query_window_end_date_exclusive": (report_dates.max() + pd.Timedelta(days=1))
+        .date()
+        .isoformat(),
+        "output_columns": list(TREASURYDIRECT_ISSUED_MATURING_COLUMNS),
+        "value_columns": list(TREASURYDIRECT_ISSUED_MATURING_VALUE_COLUMNS),
+        "security_types": list(TREASURYDIRECT_SECURITY_TYPES),
+        "formula": "change = issued - maturing",
+        "projected_formula": "projected_change = offering_amount + soma_tendered - maturing",
+        "date_policy": (
+            "The source current-window query_start_date is included and query_end_date is "
+            "excluded, matching the legacy PowerShell date-range behavior."
+        ),
+        "weekend_policy": (
+            "Weekend completed changes accumulate into the next weekday as "
+            "change_with_weekend and weekend. Weekend rows are kept only when change is non-zero."
+        ),
+        "projection_policy": (
+            "Projected values are null when no issue-date source rows exist for the date or "
+            "security type. Amounts are stored in raw U.S. dollars."
+        ),
+    }
+    return replace_dataset(target_spec, derived_df, source_metadata=metadata)
+
+
 def build_fed_net_liquidity(*, data_dir: Path = DEFAULT_DATA_DIR) -> UpdateResult:
     """Build and cache the derived Fed net liquidity dataset."""
     specs = {
@@ -554,6 +836,8 @@ def build_derived_dataset(dataset_id: str, *, data_dir: Path = DEFAULT_DATA_DIR)
         return build_tga_explorer(data_dir=data_dir)
     if dataset_id == TREASURY_SECURITIES_NET_ISSUANCE_DATASET_ID:
         return build_treasury_securities_net_issuance(data_dir=data_dir)
+    if dataset_id == TREASURYDIRECT_ISSUED_MATURING_CURRENT_DATASET_ID:
+        return build_treasurydirect_issued_maturing(data_dir=data_dir)
     if dataset_id == FED_NET_LIQUIDITY_DATASET_ID:
         return build_fed_net_liquidity(data_dir=data_dir)
     known = ", ".join(DERIVED_DATASET_IDS)
