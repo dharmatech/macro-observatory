@@ -350,11 +350,23 @@ def test_treasurydirect_issued_maturing_table_has_row_tracking_styles() -> None:
     assert ".issued-maturing-table tbody .sticky-column" in stylesheet
     assert "background: var(--issued-maturing-row-bg);" in stylesheet
     assert "group-header group-start" in page_html
+    assert 'data-group-toggle="bills"' in page_html
+    assert 'data-group-toggle="notes"' in page_html
+    assert 'data-group-toggle="bonds"' in page_html
+    assert 'aria-expanded="true"' in page_html
+    assert 'data-column-role="change"' in page_html
     assert "GROUP_START_COLUMNS" in script
+    assert "COLLAPSIBLE_GROUPS" in script
+    assert "COLLAPSIBLE_COLUMNS" in script
+    assert "group-collapsed-bills" in script
+    assert "aria-expanded" in script
     assert "issued_bills" in script
     assert "issued_notes" in script
     assert "issued_bonds" in script
     assert '"issued"' in script
     assert '"auction"' in script
     assert ".issued-maturing-table .group-start" in stylesheet
+    assert ".issued-maturing-table .group-toggle" in stylesheet
+    assert ".issued-maturing-table.group-collapsed-bills" in stylesheet
+    assert ".collapsible-extra" in stylesheet
     assert "border-left: 2px solid var(--border-strong);" in stylesheet

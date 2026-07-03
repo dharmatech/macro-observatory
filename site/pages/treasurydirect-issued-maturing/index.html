@@ -62,25 +62,40 @@
           <thead>
             <tr>
               <th class="sticky-column" rowspan="2">Date</th>
-              <th class="group-header group-start" colspan="4">Bills</th>
-              <th class="group-header group-start" colspan="4">Notes</th>
-              <th class="group-header group-start" colspan="4">Bonds</th>
+              <th class="group-header group-start collapsible-group-header" colspan="4" data-group-header="bills">
+                <button class="group-toggle" type="button" data-group-toggle="bills" aria-expanded="true" aria-label="Collapse Bills columns">
+                  <span>Bills</span>
+                  <span class="group-toggle-symbol" aria-hidden="true">-</span>
+                </button>
+              </th>
+              <th class="group-header group-start collapsible-group-header" colspan="4" data-group-header="notes">
+                <button class="group-toggle" type="button" data-group-toggle="notes" aria-expanded="true" aria-label="Collapse Notes columns">
+                  <span>Notes</span>
+                  <span class="group-toggle-symbol" aria-hidden="true">-</span>
+                </button>
+              </th>
+              <th class="group-header group-start collapsible-group-header" colspan="4" data-group-header="bonds">
+                <button class="group-toggle" type="button" data-group-toggle="bonds" aria-expanded="true" aria-label="Collapse Bonds columns">
+                  <span>Bonds</span>
+                  <span class="group-toggle-symbol" aria-hidden="true">-</span>
+                </button>
+              </th>
               <th class="group-header group-start" colspan="6">Total</th>
               <th class="group-header group-start" colspan="4">Auction</th>
             </tr>
             <tr>
-              <th class="group-start">Issued</th>
-              <th>Maturing</th>
-              <th>Change</th>
-              <th>Projected</th>
-              <th class="group-start">Issued</th>
-              <th>Maturing</th>
-              <th>Change</th>
-              <th>Projected</th>
-              <th class="group-start">Issued</th>
-              <th>Maturing</th>
-              <th>Change</th>
-              <th>Projected</th>
+              <th class="group-start collapsible-column collapsible-extra" data-group="bills" data-column-role="issued">Issued</th>
+              <th class="collapsible-column collapsible-extra" data-group="bills" data-column-role="maturing">Maturing</th>
+              <th class="collapsible-column group-summary" data-group="bills" data-column-role="change">Change</th>
+              <th class="collapsible-column collapsible-extra" data-group="bills" data-column-role="projected">Projected</th>
+              <th class="group-start collapsible-column collapsible-extra" data-group="notes" data-column-role="issued">Issued</th>
+              <th class="collapsible-column collapsible-extra" data-group="notes" data-column-role="maturing">Maturing</th>
+              <th class="collapsible-column group-summary" data-group="notes" data-column-role="change">Change</th>
+              <th class="collapsible-column collapsible-extra" data-group="notes" data-column-role="projected">Projected</th>
+              <th class="group-start collapsible-column collapsible-extra" data-group="bonds" data-column-role="issued">Issued</th>
+              <th class="collapsible-column collapsible-extra" data-group="bonds" data-column-role="maturing">Maturing</th>
+              <th class="collapsible-column group-summary" data-group="bonds" data-column-role="change">Change</th>
+              <th class="collapsible-column collapsible-extra" data-group="bonds" data-column-role="projected">Projected</th>
               <th class="group-start">Issued</th>
               <th>Maturing</th>
               <th>Change</th>

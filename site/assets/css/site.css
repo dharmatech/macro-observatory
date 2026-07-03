@@ -987,7 +987,8 @@ body.chart-expanded-active {
 }
 
 .issued-maturing-table {
-  min-width: 2100px;
+  width: max-content;
+  min-width: 100%;
   font-size: 12px;
 }
 
@@ -1016,6 +1017,56 @@ body.chart-expanded-active {
 .issued-maturing-table .group-header {
   color: var(--text);
   text-align: center;
+}
+
+.issued-maturing-table .collapsible-group-header {
+  padding: 0;
+}
+
+.issued-maturing-table .group-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  box-sizing: border-box;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 800;
+  gap: 8px;
+  justify-content: center;
+  min-height: 34px;
+  padding: 9px 10px;
+  text-transform: uppercase;
+  width: 100%;
+}
+
+.issued-maturing-table .group-toggle:hover {
+  background: #f1f5f9;
+}
+
+.issued-maturing-table .group-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.issued-maturing-table .group-toggle-symbol {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.issued-maturing-table.group-collapsed-bills [data-group="bills"].collapsible-extra,
+.issued-maturing-table.group-collapsed-notes [data-group="notes"].collapsible-extra,
+.issued-maturing-table.group-collapsed-bonds [data-group="bonds"].collapsible-extra {
+  display: none;
+}
+
+.issued-maturing-table.group-collapsed-bills [data-group="bills"].group-summary,
+.issued-maturing-table.group-collapsed-notes [data-group="notes"].group-summary,
+.issued-maturing-table.group-collapsed-bonds [data-group="bonds"].group-summary {
+  border-left: 2px solid var(--border-strong);
 }
 
 .issued-maturing-table .group-start {

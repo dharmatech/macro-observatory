@@ -49,10 +49,45 @@
     "issued",
     "auction"
   ]);
+  const COLLAPSIBLE_GROUPS = {
+    bills: {
+      label: "Bills",
+      collapsedClass: "group-collapsed-bills",
+      headerSelector: '[data-group-header="bills"]',
+      toggleSelector: '[data-group-toggle="bills"]'
+    },
+    notes: {
+      label: "Notes",
+      collapsedClass: "group-collapsed-notes",
+      headerSelector: '[data-group-header="notes"]',
+      toggleSelector: '[data-group-toggle="notes"]'
+    },
+    bonds: {
+      label: "Bonds",
+      collapsedClass: "group-collapsed-bonds",
+      headerSelector: '[data-group-header="bonds"]',
+      toggleSelector: '[data-group-toggle="bonds"]'
+    }
+  };
+  const COLLAPSIBLE_COLUMNS = {
+    issued_bills: { group: "bills", role: "issued", summary: false },
+    maturing_bills: { group: "bills", role: "maturing", summary: false },
+    bills_change: { group: "bills", role: "change", summary: true },
+    projected_change_bills: { group: "bills", role: "projected", summary: false },
+    issued_notes: { group: "notes", role: "issued", summary: false },
+    maturing_notes: { group: "notes", role: "maturing", summary: false },
+    notes_change: { group: "notes", role: "change", summary: true },
+    projected_change_notes: { group: "notes", role: "projected", summary: false },
+    issued_bonds: { group: "bonds", role: "issued", summary: false },
+    maturing_bonds: { group: "bonds", role: "maturing", summary: false },
+    bonds_change: { group: "bonds", role: "change", summary: true },
+    projected_change_bonds: { group: "bonds", role: "projected", summary: false }
+  };
 
   let metadata = null;
   let rows = [];
   let columnIndex = {};
+  const collapsedGroups = new Set();
   const timings = {
     fetch: null,
     parse: null,
@@ -119,24 +154,95 @@
     return window.MacroObservatory.valueToneClass(value);
   }
 
-  function appendAmountCell(row, sourceRow, columnName, className) {
+  function applyCellAttributes(cell, attributes) {
+    Object.entries(attributes || {}).forEach(([name, value]) => {
+      cell.setAttribute(name, value);
+    });
+  }
+
+  function columnPresentation(columnName) {
+    const classes = [];
+    const attributes = {};
+    const collapseMetadata = COLLAPSIBLE_COLUMNS[columnName];
+
+    if (GROUP_START_COLUMNS.has(columnName)) {
+      classes.push("group-start");
+    }
+    if (collapseMetadata) {
+      classes.push("collapsible-column");
+      classes.push(collapseMetadata.summary ? "group-summary" : "collapsible-extra");
+      attributes["data-group"] = collapseMetadata.group;
+      attributes["data-column-role"] = collapseMetadata.role;
+    }
+
+    return {
+      className: classes.join(" "),
+      attributes
+    };
+  }
+
+  function appendAmountCell(row, sourceRow, columnName, className, attributes) {
     const value = numericRowValue(sourceRow, columnName);
     const signed = SIGNED_COLUMNS.has(columnName);
     const cell = document.createElement("td");
     cell.className = ["number-cell", valueToneClass(value, signed), className]
       .filter(Boolean)
       .join(" ");
+    applyCellAttributes(cell, attributes);
     cell.textContent = formatBillions(value, signed);
     row.appendChild(cell);
   }
 
-  function appendTextCell(row, value, className) {
+  function appendTextCell(row, value, className, attributes) {
     const cell = document.createElement("td");
     cell.textContent = value || "";
     if (className) {
       cell.className = className;
     }
+    applyCellAttributes(cell, attributes);
     row.appendChild(cell);
+  }
+
+  function updateGroupVisibility() {
+    const table = document.querySelector(".issued-maturing-table");
+    Object.entries(COLLAPSIBLE_GROUPS).forEach(([groupId, group]) => {
+      const collapsed = collapsedGroups.has(groupId);
+      const header = document.querySelector(group.headerSelector);
+      const toggle = document.querySelector(group.toggleSelector);
+
+      if (table) {
+        table.classList.toggle(group.collapsedClass, collapsed);
+      }
+      if (header) {
+        header.colSpan = collapsed ? 1 : 4;
+      }
+      if (toggle) {
+        toggle.setAttribute("aria-expanded", String(!collapsed));
+        toggle.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} ${group.label} columns`);
+        const symbol = toggle.querySelector(".group-toggle-symbol");
+        if (symbol) {
+          symbol.textContent = collapsed ? "+" : "-";
+        }
+      }
+    });
+  }
+
+  function setupGroupToggles() {
+    Object.entries(COLLAPSIBLE_GROUPS).forEach(([groupId, group]) => {
+      const toggle = document.querySelector(group.toggleSelector);
+      if (!toggle) {
+        return;
+      }
+      toggle.addEventListener("click", () => {
+        if (collapsedGroups.has(groupId)) {
+          collapsedGroups.delete(groupId);
+        } else {
+          collapsedGroups.add(groupId);
+        }
+        updateGroupVisibility();
+      });
+    });
+    updateGroupVisibility();
   }
 
   function renderDiagnostics() {
@@ -239,17 +345,18 @@
       const row = document.createElement("tr");
       appendTextCell(row, String(rowValue(sourceRow, "date") || ""), "sticky-column date-cell");
       COLUMNS.slice(1).forEach((columnName) => {
-        const groupClass = GROUP_START_COLUMNS.has(columnName) ? "group-start" : "";
+        const columnMeta = columnPresentation(columnName);
         if (AMOUNT_COLUMNS.has(columnName)) {
-          appendAmountCell(row, sourceRow, columnName, groupClass);
+          appendAmountCell(row, sourceRow, columnName, columnMeta.className, columnMeta.attributes);
           return;
         }
         appendTextCell(
           row,
           String(rowValue(sourceRow, columnName) || ""),
-          [columnName === "auction" ? "auction-marker-cell" : "", groupClass]
+          [columnName === "auction" ? "auction-marker-cell" : "", columnMeta.className]
             .filter(Boolean)
-            .join(" ")
+            .join(" "),
+          columnMeta.attributes
         );
       });
       body.appendChild(row);
@@ -261,6 +368,7 @@
   }
 
   async function initialize() {
+    setupGroupToggles();
     try {
       metadata = await window.MacroObservatory.fetchJson(METADATA_URL);
       renderMetadata();
