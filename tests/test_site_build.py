@@ -334,3 +334,12 @@ def test_static_site_links_treasurydirect_issued_maturing_page() -> None:
     assert "../../assets/js/treasurydirect-issued-maturing.js" in page_html
     assert "../../data/treasurydirect-issued-maturing.json" in script_js
     assert "../../data/treasurydirect-issued-maturing-metadata.json" in script_js
+
+def test_treasurydirect_issued_maturing_table_has_row_tracking_styles() -> None:
+    stylesheet = Path("site/assets/css/site.css").read_text(encoding="utf-8")
+
+    assert ".issued-maturing-table tbody tr:nth-child(even)" in stylesheet
+    assert ".issued-maturing-table tbody tr:hover" in stylesheet
+    assert "--issued-maturing-row-bg" in stylesheet
+    assert ".issued-maturing-table tbody .sticky-column" in stylesheet
+    assert "background: var(--issued-maturing-row-bg);" in stylesheet

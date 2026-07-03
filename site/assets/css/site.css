@@ -1029,6 +1029,23 @@ body.chart-expanded-active {
 
 .issued-maturing-table tbody .sticky-column {
   z-index: 1;
+  background: var(--issued-maturing-row-bg);
+}
+
+.issued-maturing-table tbody tr {
+  --issued-maturing-row-bg: var(--surface);
+}
+
+.issued-maturing-table tbody tr:nth-child(even) {
+  --issued-maturing-row-bg: #f8fafc;
+}
+
+.issued-maturing-table tbody tr:hover {
+  --issued-maturing-row-bg: #eef5ff;
+}
+
+.issued-maturing-table tbody td {
+  background: var(--issued-maturing-row-bg);
 }
 
 .issued-maturing-table .date-cell {
