@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TGA Top | Macro Observatory</title>
+  <link rel="stylesheet" href="../../assets/css/site.css">
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+  <script src="../../assets/js/site.js" defer></script>
+  <script src="../../assets/js/tga-top.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand-link" href="../../">Macro Observatory</a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="../../">Pages</a>
+      <a href="../../data/tga-explorer.csv">CSV</a>
+    </nav>
+  </header>
+
+  <main class="site-shell dashboard-shell">
+    <section class="page-heading dashboard-heading">
+      <div>
+        <p class="eyebrow">Daily Treasury Statement</p>
+        <h1>TGA Top</h1>
+        <p class="heading-summary" id="dataset-summary">Loading dataset metadata</p>
+      </div>
+      <div class="metadata-block" aria-label="Dataset build details">
+        <span>Built</span>
+        <strong id="built-at">Loading</strong>
+      </div>
+    </section>
+
+    <div class="alert" id="page-alert" role="alert" hidden></div>
+    <div class="loading-row" id="loading-row">Loading TGA Top metadata...</div>
+
+    <section class="metric-grid" aria-label="Selected date summary">
+      <article class="metric-tile">
+        <span>Latest Date</span>
+        <strong id="metric-latest-date">-</strong>
+      </article>
+      <article class="metric-tile metric-primary">
+        <span>Selected Date</span>
+        <strong id="metric-selected-date">-</strong>
+      </article>
+      <article class="metric-tile">
+        <span>Deposit Rows</span>
+        <strong id="metric-deposit-count">-</strong>
+      </article>
+      <article class="metric-tile">
+        <span>Withdrawal Rows</span>
+        <strong id="metric-withdrawal-count">-</strong>
+      </article>
+    </section>
+
+    <section class="explorer-layout" aria-label="TGA Top controls and daily snapshot">
+      <aside class="control-panel" aria-labelledby="controls-heading">
+        <div class="section-heading-row compact-heading-row">
+          <h2 id="controls-heading">Controls</h2>
+          <span class="range-label" id="control-date-status">-</span>
+        </div>
+
+        <label class="form-field" for="date-input">
+          <span>Date</span>
+          <input id="date-input" type="date">
+        </label>
+        <p class="control-help" id="date-help">Loading available dates</p>
+
+        <div class="button-row tga-top-date-buttons">
+          <button class="secondary-button" id="previous-date-button" type="button">Previous</button>
+          <button class="secondary-button" id="next-date-button" type="button">Next</button>
+          <button class="secondary-button" id="latest-date-button" type="button">Latest</button>
+        </div>
+      </aside>
+
+      <div class="explorer-main">
+        <section class="tga-top-table-grid" aria-label="Top deposits and withdrawals">
+          <article class="detail-panel tga-top-table-panel" aria-labelledby="deposits-heading">
+            <div class="section-heading-row">
+              <h2 id="deposits-heading">Deposits</h2>
+              <span class="range-label" id="deposits-range-label">-</span>
+            </div>
+            <div class="table-frame">
+              <table class="data-table tga-top-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Today (M)</th>
+                    <th>MTD (M)</th>
+                    <th>FYTD (M)</th>
+                  </tr>
+                </thead>
+                <tbody id="deposits-table-body"></tbody>
+              </table>
+              <p class="tga-top-empty" id="deposits-empty" hidden>No deposits found for the selected date.</p>
+            </div>
+          </article>
+
+          <article class="detail-panel tga-top-table-panel" aria-labelledby="withdrawals-heading">
+            <div class="section-heading-row">
+              <h2 id="withdrawals-heading">Withdrawals</h2>
+              <span class="range-label" id="withdrawals-range-label">-</span>
+            </div>
+            <div class="table-frame">
+              <table class="data-table tga-top-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Today (M)</th>
+                    <th>MTD (M)</th>
+                    <th>FYTD (M)</th>
+                  </tr>
+                </thead>
+                <tbody id="withdrawals-table-body"></tbody>
+              </table>
+              <p class="tga-top-empty" id="withdrawals-empty" hidden>No withdrawals found for the selected date.</p>
+            </div>
+          </article>
+        </section>
+
+        <section class="tga-top-chart-grid" aria-label="Withdrawal FYTD pie charts">
+          <article class="chart-section tga-top-chart-section" aria-labelledby="raw-withdrawals-heading">
+            <div class="section-heading-row">
+              <h2 id="raw-withdrawals-heading">Withdrawals FYTD By Category</h2>
+              <div class="chart-heading-actions">
+                <span class="range-label" id="raw-pie-range-label">-</span>
+                <button class="chart-expand-button" id="raw-pie-expand" type="button">Expand</button>
+              </div>
+            </div>
+            <div class="guardrail-message" id="raw-pie-message" hidden></div>
+            <div class="chart-frame tga-top-pie-frame" id="raw-pie-frame">
+              <div id="raw-pie-chart" class="plotly-chart tga-top-pie-chart" aria-label="Withdrawals FYTD by category pie chart"></div>
+            </div>
+          </article>
+
+          <article class="chart-section tga-top-chart-section" aria-labelledby="agency-withdrawals-heading">
+            <div class="section-heading-row">
+              <h2 id="agency-withdrawals-heading">Withdrawals FYTD By Agency Group</h2>
+              <div class="chart-heading-actions">
+                <span class="range-label" id="agency-pie-range-label">-</span>
+                <button class="chart-expand-button" id="agency-pie-expand" type="button">Expand</button>
+              </div>
+            </div>
+            <div class="guardrail-message" id="agency-pie-message" hidden></div>
+            <div class="chart-frame tga-top-pie-frame" id="agency-pie-frame">
+              <div id="agency-pie-chart" class="plotly-chart tga-top-pie-chart" aria-label="Withdrawals FYTD by agency group pie chart"></div>
+            </div>
+          </article>
+        </section>
+
+        <div class="diagnostics-bar" id="diagnostics-bar">Rows - | Data - | Parse - | Render -</div>
+      </div>
+    </section>
+  </main>
+
+  <noscript>
+    <div class="noscript-message">This page needs JavaScript to load the published data artifact.</div>
+  </noscript>
+</body>
+</html>

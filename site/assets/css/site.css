@@ -853,3 +853,68 @@ body.chart-expanded-active {
     flex: 1 1 150px;
   }
 }
+
+.tga-top-date-buttons {
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tga-top-table-grid,
+.tga-top-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.tga-top-chart-grid {
+  margin-top: 18px;
+}
+
+.tga-top-table-panel,
+.tga-top-chart-section {
+  margin-top: 0;
+}
+
+.tga-top-table {
+  min-width: 560px;
+}
+
+.tga-top-table th:first-child,
+.tga-top-table td:first-child {
+  min-width: 240px;
+  white-space: normal;
+}
+
+.tga-top-empty {
+  margin: 0;
+  padding: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.tga-top-pie-frame {
+  min-height: 520px;
+}
+
+.tga-top-pie-chart {
+  height: 500px;
+}
+
+@media (max-width: 1050px) {
+  .tga-top-table-grid,
+  .tga-top-chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .tga-top-pie-frame {
+    min-height: 440px;
+  }
+
+  .tga-top-pie-chart {
+    height: 420px;
+  }
+}
