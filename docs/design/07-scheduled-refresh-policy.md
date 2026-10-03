@@ -179,6 +179,14 @@ The initial implemented policy uses the shared `github-pages` concurrency group 
 
 That means refresh and deploy jobs queue behind each other rather than canceling an in-progress source update. This is conservative and slightly slower during overlapping runs, but it avoids interrupting a scheduled refresh after it has restored cache and before it has saved the next cache snapshot.
 
+## Workflow Keepalive
+
+GitHub automatically disables scheduled workflows in public repositories after 60 days without repository activity. Successful data-refresh runs did not prevent this: the last repository commit was July 3, 2026, and the scheduled workflow stopped after its successful September 1 run. By October 3, the Actions data cache had also expired. Manual Pages run [37136324078](https://github.com/dharmatech/macro-observatory/actions/runs/37136324078) rebuilt all eight sources with `allow_cold_build=true`, restored the cache, and published observations through October 2. Scheduling was then re-enabled, and targeted RRP run [37136565560](https://github.com/dharmatech/macro-observatory/actions/runs/37136565560) verified cache reuse and successful deployment.
+
+The scheduled refresh workflow now includes an independent `keepalive` job on every scheduled or manual refresh. It calls GitHub's [enable-workflow API](https://docs.github.com/en/rest/actions/workflows#enable-a-workflow) for `scheduled-refresh.yml` using the built-in workflow token with job-scoped `actions: write` permission. It does not depend on the data build, so source API failures do not skip keepalive. A failed keepalive fails its job and remains visible in the workflow result.
+
+Calling the enable endpoint while a workflow is active is a community keepalive approach, demonstrated by [gh-workflow-keepalive](https://github.com/liskin/gh-workflow-keepalive). GitHub documents the enable operation but does not explicitly guarantee this timer-reset behavior. The job needs no new secret, checkout, dummy commit, third-party action, or external scheduler. It cannot recover itself after scheduling has already stopped; independent freshness monitoring remains useful, and an expired data cache still requires an intentional manual Pages repair.
+
 ## Observability
 
 The workflow should log:

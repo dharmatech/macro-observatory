@@ -40,6 +40,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  keepalive:
+    name: Keep scheduled refresh active
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: write
+    steps:
+      - name: Renew workflow activity through GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method PUT \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/scheduled-refresh.yml/enable"
+          echo "Scheduled refresh keepalive succeeded."
+
   build:
     name: Refresh data and build static site
     runs-on: ubuntu-latest
